@@ -2,7 +2,6 @@ package com.atlasiq.api;
 
 import com.atlasiq.qir.QirModel;
 import com.atlasiq.scanner.RepositoryScanner;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -22,8 +21,6 @@ public class ScanResource {
 
     @POST
     public QirModel scan(ScanRequest request) {
-        return scanner.scan(new RepositoryScanner.ScanRequest(request.repository(), request.ref()));
+        return scanner.scan(new com.atlasiq.scanner.ScanRequest(request.repository(), request.ref()));
     }
-
-    public record ScanRequest(@NotBlank String repository, @NotBlank String ref) {}
 }
