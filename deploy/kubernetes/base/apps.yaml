@@ -13,6 +13,8 @@ spec:
       labels:
         app: atlasiq-backend
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: backend
           image: atlasiq/backend:local
@@ -20,8 +22,13 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: ATLAsIQ_DATABASE_URL
+            - name: ATLASIQ_DATABASE_URL
               value: jdbc:postgresql://postgres:5432/atlasiq
+            - name: ATLASIQ_WORKSPACE_ROOT
+              value: /workspace
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
           resources:
             requests:
               cpu: 100m
@@ -45,6 +52,9 @@ spec:
             runAsUser: 10001
             capabilities:
               drop: ["ALL"]
+      volumes:
+        - name: workspace
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -73,6 +83,8 @@ spec:
       labels:
         app: atlasiq-frontend
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: frontend
           image: atlasiq/frontend:local
