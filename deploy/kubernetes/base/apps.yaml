@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlasiq-backend
+  namespace: atlasiq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlasiq-backend
+  template:
+    metadata:
+      labels:
+        app: atlasiq-backend
+    spec:
+      containers:
+        - name: backend
+          image: atlasiq/backend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ATLAsIQ_DATABASE_URL
+              value: jdbc:postgresql://postgres:5432/atlasiq
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlasiq-backend
+  namespace: atlasiq
+spec:
+  selector:
+    app: atlasiq-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlasiq-frontend
+  namespace: atlasiq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlasiq-frontend
+  template:
+    metadata:
+      labels:
+        app: atlasiq-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: atlasiq/frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_BASE_URL
+              value: /api
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 384Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlasiq-frontend
+  namespace: atlasiq
+spec:
+  selector:
+    app: atlasiq-frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
