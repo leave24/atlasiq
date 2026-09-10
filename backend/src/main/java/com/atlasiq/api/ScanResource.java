@@ -2,6 +2,7 @@ package com.atlasiq.api;
 
 import com.atlasiq.qir.QirModel;
 import com.atlasiq.scanner.RepositoryScanner;
+import com.atlasiq.scanner.ScanRequest;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -21,6 +22,6 @@ public class ScanResource {
 
     @POST
     public QirModel scan(ScanRequest request) {
-        return scanner.scan(new com.atlasiq.scanner.ScanRequest(request.repository(), request.ref()));
+        return scanner.scan(request);
     }
 }
