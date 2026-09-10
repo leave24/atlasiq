@@ -7,5 +7,6 @@ public record QirModel(
         String ref,
         List<QirNode> nodes,
         List<QirEdge> edges,
-        List<Finding> findings) {}
+        List<Finding> findings) {
+}
 
