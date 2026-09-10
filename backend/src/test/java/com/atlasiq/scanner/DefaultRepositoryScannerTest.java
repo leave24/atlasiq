@@ -1,5 +1,6 @@
 package com.atlasiq.scanner;
 
+import com.atlasiq.parser.docker.DockerfileParser;
 import com.atlasiq.parser.kubernetes.KubernetesParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -16,7 +17,7 @@ class DefaultRepositoryScannerTest {
     Path workspace;
 
     @Test
-    void scansRepositoryInsideWorkspaceAndReturnsKubernetesQir() throws Exception {
+    void scansRepositoryInsideWorkspaceAndAggregatesQir() throws Exception {
         Path repository = Files.createDirectories(workspace.resolve("demo"));
         Files.writeString(repository.resolve("app.yaml"), """
                 apiVersion: v1
@@ -55,19 +56,29 @@ class DefaultRepositoryScannerTest {
                           livenessProbe:
                             tcpSocket: { port: 8080 }
                 """);
+        Files.writeString(repository.resolve("Dockerfile"), """
+                FROM eclipse-temurin:21-jre
+                USER 10001
+                COPY target/app.jar /app/app.jar
+                """);
 
-        var scanner = new DefaultRepositoryScanner(new KubernetesParser(), workspace.toString());
+        var scanner = scanner();
         var qir = scanner.scan(new ScanRequest("demo", "local"));
 
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("repository")));
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("kubernetes-deployment")));
+        assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("container-image")));
         assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("selects")));
         assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("contains")));
     }
 
     @Test
     void rejectsPathTraversalOutsideWorkspace() {
-        var scanner = new DefaultRepositoryScanner(new KubernetesParser(), workspace.toString());
-        assertThrows(IllegalArgumentException.class, () -> scanner.scan(new ScanRequest("../outside", "local")));
+        assertThrows(IllegalArgumentException.class,
+                () -> scanner().scan(new ScanRequest("../outside", "local")));
+    }
+
+    private DefaultRepositoryScanner scanner() {
+        return new DefaultRepositoryScanner(new KubernetesParser(), new DockerfileParser(), workspace.toString());
     }
 }
