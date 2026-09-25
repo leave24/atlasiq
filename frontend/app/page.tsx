@@ -163,7 +163,7 @@ function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
   return <section>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",margin:"0 0 14px"}}>
       {["all",...domains].map(key=><button key={key} onClick={()=>{setDomain(key);setSelected(null)}} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:domain===key?700:400}}>{labels[key]}</button>)}
-      <div style={{display:"flex",gap:6,marginLeft:"auto"}}><button onClick={()=>setDetail("overview")} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:detail==="overview"?700:400}}>Overview</button><button onClick={()=>setDetail("components")} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:detail==="components"?700:400}}>Components</button><button onClick={resetView} style={{padding:"8px 12px",borderRadius:18,border:"1px solid"}}>Reset view</button></div>
+      <div style={{display:"flex",gap:6,marginLeft:"auto"}}><button onClick={()=>{setDetail("overview");setSelected(null)}} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:detail==="overview"?700:400}}>Overview</button><button onClick={()=>setDetail("components")} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:detail==="components"?700:400}}>Components</button><button onClick={resetView} style={{padding:"8px 12px",borderRadius:18,border:"1px solid"}}>Reset view</button></div>
     </div>
     <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",margin:"0 0 14px",padding:"10px 12px",border:"1px solid",borderRadius:8}}>
       <strong style={{fontSize:13}}>Relationships</strong>
