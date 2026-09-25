@@ -9,30 +9,86 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  backend:
+  backend-test:
+    name: Backend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - run: mvn -B test
 
-  frontend:
+      - name: Run backend tests
+        run: mvn -B -ntp test
+
+  frontend-build:
+    name: Frontend build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install
-      - run: npm run build
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+  container-build:
+    name: Container build validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend-test, frontend-build]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build backend image
+        run: docker build -t atlasiq-backend:ci ./backend
+
+      - name: Build frontend image
+        run: docker build -t atlasiq-frontend:ci ./frontend
+
+  ci-gate:
+    name: CI gate
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-build, container-build]
+    steps:
+      - name: Require all stages to pass
+        env:
+          BACKEND_RESULT: ${{ needs.backend-test.result }}
+          FRONTEND_RESULT: ${{ needs.frontend-build.result }}
+          CONTAINER_RESULT: ${{ needs.container-build.result }}
+        run: |
+          echo "backend-test=$BACKEND_RESULT"
+          echo "frontend-build=$FRONTEND_RESULT"
+          echo "container-build=$CONTAINER_RESULT"
+          test "$BACKEND_RESULT" = "success"
+          test "$FRONTEND_RESULT" = "success"
+          test "$CONTAINER_RESULT" = "success"
