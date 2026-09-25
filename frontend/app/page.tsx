@@ -62,7 +62,17 @@ function Metric({label,value}:{label:string,value:number}){return <article style
 function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
   const [selected,setSelected]=useState<Node|null>(null);
   const [domain,setDomain]=useState("all");
-  const [showContainment,setShowContainment]=useState(false);
+  const [edgeFilters,setEdgeFilters]=useState<Record<string,boolean>>({routing:true,selectors:true,secrets:true,uses:true,dependencies:false,containment:false,other:true});
+  const edgeCategory=(relationship:string)=>{
+    if(relationship==="routes_to")return "routing";
+    if(relationship==="selects")return "selectors";
+    if(relationship==="reads_secret")return "secrets";
+    if(relationship==="uses")return "uses";
+    if(relationship==="precedes"||relationship==="depends_on")return "dependencies";
+    if(relationship==="contains")return "containment";
+    return "other";
+  };
+  const edgeLabels:Record<string,string>={routing:"Routing",selectors:"Selectors",secrets:"Secrets",uses:"Uses",dependencies:"Job dependencies",containment:"Containment",other:"Other"};
   const domainOf=(node:Node)=>node.type.startsWith("kubernetes-")?"kubernetes":node.type.startsWith("ci-")?"cicd":node.type==="container-image"?"containers":node.type.startsWith("terraform-")?"terraform":"other";
   const labels:Record<string,string>={all:"All",kubernetes:"Kubernetes",cicd:"CI / CD",containers:"Containers",terraform:"Terraform",other:"Other"};
   const rank=(node:Node)=>{
@@ -106,23 +116,32 @@ function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
     return {node,x:rowStart+peer*(nodeW+nodeGap),y:96+(section.rankRows.get(r)||0)*rowGap,section:si};
   }));
   const pos=new Map(positions.map(p=>[p.node.id,p]));
-  const visibleEdges=edges.filter(edge=>(showContainment||edge.relationship!=="contains")&&pos.has(edge.from)&&pos.has(edge.to));
+  const visibleEdges=edges.filter(edge=>edgeFilters[edgeCategory(edge.relationship)]!==false&&pos.has(edge.from)&&pos.has(edge.to));
   const domains=[...new Set(all.map(domainOf))];
 
   return <section>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",margin:"0 0 14px"}}>
       {["all",...domains].map(key=><button key={key} onClick={()=>setDomain(key)} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:domain===key?700:400}}>{labels[key]}</button>)}
-      <label style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}><input type="checkbox" checked={showContainment} onChange={e=>setShowContainment(e.target.checked)}/> Show containment</label>
+    </div>
+    <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",margin:"0 0 14px",padding:"10px 12px",border:"1px solid",borderRadius:8}}>
+      <strong style={{fontSize:13}}>Relationships</strong>
+      {Object.keys(edgeLabels).map(key=><label key={key} style={{display:"flex",gap:5,alignItems:"center",fontSize:13}}>
+        <input type="checkbox" checked={edgeFilters[key]!==false} onChange={e=>setEdgeFilters(current=>({...current,[key]:e.target.checked}))}/>
+        {edgeLabels[key]}
+      </label>)}
     </div>
     <div style={{overflowX:"auto",border:"1px solid",borderRadius:10,padding:8}}>
       <svg viewBox={`0 0 ${width} ${height}`} style={{width:Math.max(900,width),height:"auto",maxWidth:"none"}} role="img" aria-label="Semantic repository architecture graph">
         <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="currentColor"/></marker></defs>
         {sections.map((section,i)=>{const x=offsets[i];return <g key={section.key}><rect x={x+4} y="8" width={section.sectionWidth-8} height={height-16} rx="12" fill="none" stroke="currentColor" opacity=".2"/><text x={x+18} y="34" fontSize="14" fontWeight="700" fill="currentColor">{labels[section.key]}</text><text x={x+18} y="52" fontSize="10" fill="currentColor" opacity=".55">{section.items.length} components</text></g>})}
-        {visibleEdges.map((edge,i)=>{const a=pos.get(edge.from)!,b=pos.get(edge.to)!;const mid=(a.y+b.y)/2;const d=`M ${a.x} ${a.y+nodeH/2} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${b.y-nodeH/2}`;return <g key={i} opacity={edge.relationship==="contains"?.22:.58}><path d={d} fill="none" stroke="currentColor" strokeWidth="1.4" markerEnd="url(#arrow)"/><title>{edge.relationship}</title></g>})}
+        {visibleEdges.map((edge,i)=>{const a=pos.get(edge.from)!,b=pos.get(edge.to)!;const mid=(a.y+b.y)/2;const category=edgeCategory(edge.relationship);const d=`M ${a.x} ${a.y+nodeH/2} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${b.y-nodeH/2}`;const dash=category==="dependencies"?"7 5":category==="containment"?"2 6":undefined;const opacity=category==="containment"?.18:category==="dependencies"?.4:.65;return <g key={i} opacity={opacity}><path d={d} fill="none" stroke="currentColor" strokeWidth={category==="routing"?2:1.4} strokeDasharray={dash} markerEnd="url(#arrow)"/><title>{edge.relationship} · {edge.from} → {edge.to}</title></g>})}
         {positions.map(({node,x,y})=><g key={node.id} onClick={()=>setSelected(node)} style={{cursor:"pointer"}}><rect x={x-nodeW/2} y={y-nodeH/2} width={nodeW} height={nodeH} rx="8" fill="#0b1117" stroke="currentColor"/><text x={x} y={y-7} textAnchor="middle" fontSize="10" fill="currentColor" opacity=".65">{node.type.replace(/^kubernetes-/,"k8s · ").replace(/^ci-/,"ci · ").replace(/^terraform-/,"tf · ")}</text><text x={x} y={y+13} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">{shorten(displayName(node),24)}</text></g>)}
       </svg>
     </div>
-    <p><small>Semantic layout: infrastructure entry points and workflows appear above their dependants. Showing {filtered.length} of {all.length} components.</small></p>
+    <div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:10,fontSize:12,opacity:.72}}>
+      <span>━━ structural / runtime</span><span>┄┄ job dependency</span><span>···· containment</span>
+    </div>
+    <p><small>Semantic layout: infrastructure entry points and workflows appear above their dependants. Showing {filtered.length} of {all.length} components and {visibleEdges.length} filtered relationships.</small></p>
     {selected&&<aside style={{border:"1px solid",borderRadius:8,padding:16,marginTop:12}}><strong>{displayName(selected)}</strong><p><small>{selected.type} · {selected.source}</small></p><code style={{wordBreak:"break-all"}}>{selected.id}</code>{selected.metadata&&Object.keys(selected.metadata).length>0&&<pre style={{whiteSpace:"pre-wrap",overflowX:"auto"}}>{JSON.stringify(selected.metadata,null,2)}</pre>}<button onClick={()=>setSelected(null)} style={{padding:"8px 12px"}}>Close details</button></aside>}
   </section>;
 }
