@@ -3,6 +3,7 @@ package com.atlasiq.scanner;
 import com.atlasiq.parser.docker.DockerfileParser;
 import com.atlasiq.parser.githubactions.GitHubActionsParser;
 import com.atlasiq.parser.kubernetes.KubernetesParser;
+import com.atlasiq.parser.terraform.TerraformParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -98,6 +99,7 @@ class DefaultRepositoryScannerTest {
                 new KubernetesParser(),
                 new DockerfileParser(),
                 new GitHubActionsParser(),
+                new TerraformParser(),
                 workspace.toString());
     }
 }
