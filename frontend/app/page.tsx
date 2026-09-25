@@ -43,6 +43,7 @@ export default function Home() {
         <Metric label="Findings" value={model.findings.length}/>
         <Metric label="Critical / High" value={model.findings.filter(f=>["CRITICAL","HIGH"].includes(f.severity)).length}/>
       </section>
+      <RepositoryAnalysisSummary model={model}/>
       <h2>Architecture graph</h2>
       <ArchitectureGraph nodes={model.nodes} edges={model.edges}/>
 
@@ -56,6 +57,39 @@ export default function Home() {
     </>}
   </main>;
 }
+
+function RepositoryAnalysisSummary({model}:{model:Model}){
+  const types=new Set(model.nodes.map(node=>node.type));
+  const workflows=model.nodes.filter(node=>node.type==="ci-workflow").length;
+  const containers=model.nodes.filter(node=>node.type==="container-image").length;
+  const kubernetes=model.nodes.filter(node=>node.type.startsWith("kubernetes-")).length;
+  const terraform=model.nodes.filter(node=>node.type.startsWith("terraform-")).length;
+  const criticalHigh=model.findings.filter(f=>["CRITICAL","HIGH"].includes(f.severity)).length;
+  const technologies=[
+    {label:"Kubernetes",value:kubernetes?\`Detected (\${kubernetes} components)\`:"Not detected"},
+    {label:"Containers",value:containers?\`Detected (\${containers} images)\`:"Not detected"},
+    {label:"CI / CD",value:workflows?\`GitHub Actions (\${workflows} workflows)\`:"Not detected"},
+    {label:"Terraform",value:terraform?\`Detected (\${terraform} components)\`:"Not detected"}
+  ];
+  return <section style={{border:"1px solid",borderRadius:10,padding:18,margin:"0 0 28px"}}>
+    <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",alignItems:"baseline"}}>
+      <div><h2 style={{margin:"0 0 4px"}}>Repository analysis</h2><small>{model.repository} · {model.ref||"default"}</small></div>
+      <small>Deterministic QIR summary</small>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12,marginTop:16}}>
+      {technologies.map(item=><div key={item.label} style={{padding:12,border:"1px solid",borderRadius:8}}><small>{item.label}</small><div style={{fontWeight:700,marginTop:4}}>{item.value}</div></div>)}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginTop:12}}>
+      <SummaryStat label="Components" value={model.nodes.filter(n=>n.type!=="repository").length}/>
+      <SummaryStat label="Relationships" value={model.edges.length}/>
+      <SummaryStat label="Findings" value={model.findings.length}/>
+      <SummaryStat label="Critical / High" value={criticalHigh}/>
+      <SummaryStat label="QIR node types" value={types.size}/>
+    </div>
+  </section>;
+}
+function SummaryStat({label,value}:{label:string,value:number}){return <div style={{padding:"10px 12px",border:"1px solid",borderRadius:8}}><strong style={{fontSize:22}}>{value}</strong><div><small>{label}</small></div></div>}
+
 function Metric({label,value}:{label:string,value:number}){return <article style={{border:"1px solid",borderRadius:8,padding:16}}><strong style={{fontSize:28}}>{value}</strong><div>{label}</div></article>}
 
 
