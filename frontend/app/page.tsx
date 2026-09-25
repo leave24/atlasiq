@@ -61,45 +61,76 @@ function Metric({label,value}:{label:string,value:number}){return <article style
 
 function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
   const [selected,setSelected]=useState<Node|null>(null);
-  const visibleNodes=nodes.slice(0,40);
-  const index=new Map(visibleNodes.map((node,i)=>[node.id,i]));
-  const width=1100;
-  const columns=Math.max(1,Math.min(5,Math.ceil(Math.sqrt(visibleNodes.length))));
-  const rows=Math.max(1,Math.ceil(visibleNodes.length/columns));
-  const cellW=width/columns;
-  const cellH=150;
-  const height=Math.max(220,rows*cellH);
-  const positions=visibleNodes.map((node,i)=>({
+  const visibleNodes=nodes.filter(node=>node.type!=="repository").slice(0,48);
+  const groups=[
+    {key:"kubernetes",label:"Kubernetes",match:(node:Node)=>node.type.startsWith("kubernetes-")},
+    {key:"cicd",label:"CI / CD",match:(node:Node)=>node.type.startsWith("ci-")},
+    {key:"containers",label:"Containers",match:(node:Node)=>node.type==="container-image"},
+    {key:"terraform",label:"Terraform",match:(node:Node)=>node.type.startsWith("terraform-")},
+    {key:"other",label:"Other",match:(_:Node)=>true}
+  ];
+  const assigned=new Set<string>();
+  const buckets=groups.map(group=>{
+    const items=visibleNodes.filter(node=>!assigned.has(node.id)&&group.match(node));
+    items.forEach(node=>assigned.add(node.id));
+    return {...group,items};
+  }).filter(group=>group.items.length>0);
+
+  const width=1160;
+  const groupGap=24;
+  const groupWidth=(width-groupGap*(buckets.length-1))/Math.max(1,buckets.length);
+  const nodeWidth=Math.max(150,Math.min(210,groupWidth-32));
+  const nodeHeight=58;
+  const rowGap=94;
+  const maxRows=Math.max(1,...buckets.map(group=>group.items.length));
+  const height=110+maxRows*rowGap;
+  const positions=buckets.flatMap((group,groupIndex)=>group.items.map((node,rowIndex)=>({
     node,
-    x:(i%columns)*cellW+cellW/2,
-    y:Math.floor(i/columns)*cellH+70
-  }));
-  const pos=new Map(positions.map(p=>[p.node.id,p]));
-  const visibleEdges=edges.filter(edge=>index.has(edge.from)&&index.has(edge.to));
+    x:groupIndex*(groupWidth+groupGap)+groupWidth/2,
+    y:92+rowIndex*rowGap,
+    groupIndex
+  })));
+  const pos=new Map(positions.map(item=>[item.node.id,item]));
+  const visibleEdges=edges.filter(edge=>edge.relationship!=="contains"&&pos.has(edge.from)&&pos.has(edge.to));
+  const connected=new Set(visibleEdges.flatMap(edge=>[edge.from,edge.to]));
 
   return <section>
+    <p style={{opacity:.7,marginTop:-8}}>Grouped by architecture domain. Repository containment edges are hidden to reduce visual noise.</p>
     <div style={{overflowX:"auto",border:"1px solid",borderRadius:10,padding:8}}>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",minWidth:760,height:"auto"}} role="img" aria-label="Repository architecture graph">
+      <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",minWidth:900,height:"auto"}} role="img" aria-label="Repository architecture graph">
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
           </marker>
         </defs>
-        {visibleEdges.map((edge,i)=>{
-          const from=pos.get(edge.from)!; const to=pos.get(edge.to)!;
-          return <g key={`${edge.from}-${edge.to}-${i}`} opacity=".45">
-            <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="currentColor" strokeWidth="1.5" markerEnd="url(#arrow)"/>
-            <text x={(from.x+to.x)/2} y={(from.y+to.y)/2-4} textAnchor="middle" fontSize="10" fill="currentColor">{edge.relationship}</text>
+        {buckets.map((group,i)=>{
+          const x=i*(groupWidth+groupGap);
+          return <g key={group.key}>
+            <rect x={x+4} y="8" width={groupWidth-8} height={height-16} rx="12" fill="none" stroke="currentColor" opacity=".22"/>
+            <text x={x+18} y="34" fontSize="14" fontWeight="700" fill="currentColor">{group.label}</text>
+            <text x={x+18} y="52" fontSize="10" fill="currentColor" opacity=".55">{group.items.length} components</text>
           </g>;
         })}
-        {positions.map(({node,x,y})=><g key={node.id} onClick={()=>setSelected(node)} style={{cursor:"pointer"}}>
-          <rect x={x-90} y={y-30} width="180" height="60" rx="8" fill="#0b1117" stroke="currentColor"/>
-          <text x={x} y={y-7} textAnchor="middle" fontSize="10" fill="currentColor" opacity=".7">{node.type}</text>
-          <text x={x} y={y+13} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">{shorten(node.name,24)}</text>
+        {visibleEdges.map((edge,i)=>{
+          const from=pos.get(edge.from)!; const to=pos.get(edge.to)!;
+          const sameGroup=from.groupIndex===to.groupIndex;
+          const midY=(from.y+to.y)/2;
+          const d=sameGroup
+            ? `M ${from.x} ${from.y+nodeHeight/2} C ${from.x+55} ${midY}, ${to.x+55} ${midY}, ${to.x} ${to.y-nodeHeight/2}`
+            : `M ${from.x} ${from.y} C ${(from.x+to.x)/2} ${from.y}, ${(from.x+to.x)/2} ${to.y}, ${to.x} ${to.y}`;
+          return <g key={`${edge.from}-${edge.to}-${i}`} opacity=".55">
+            <path d={d} fill="none" stroke="currentColor" strokeWidth="1.4" markerEnd="url(#arrow)"/>
+            <title>{edge.relationship}</title>
+          </g>;
+        })}
+        {positions.map(({node,x,y})=><g key={node.id} onClick={()=>setSelected(node)} style={{cursor:"pointer"}} opacity={connected.has(node.id)?1:.72}>
+          <rect x={x-nodeWidth/2} y={y-nodeHeight/2} width={nodeWidth} height={nodeHeight} rx="8" fill="#0b1117" stroke="currentColor"/>
+          <text x={x} y={y-7} textAnchor="middle" fontSize="10" fill="currentColor" opacity=".65">{node.type.replace(/^kubernetes-/,"k8s · ").replace(/^ci-/,"ci · ").replace(/^terraform-/,"tf · ")}</text>
+          <text x={x} y={y+13} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">{shorten(node.name,22)}</text>
         </g>)}
       </svg>
     </div>
-    {nodes.length>40&&<p><small>Showing the first 40 components to keep the MVP graph readable.</small></p>}
+    <p><small>Showing {visibleNodes.length} of {nodes.filter(node=>node.type!=="repository").length} non-repository components. Hover a connection for its relationship; select a node for details.</small></p>
     {selected&&<aside style={{border:"1px solid",borderRadius:8,padding:16,marginTop:12}}>
       <strong>{selected.name}</strong>
       <p><small>{selected.type} · {selected.source}</small></p>
