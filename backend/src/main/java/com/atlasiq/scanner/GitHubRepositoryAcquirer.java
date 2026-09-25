@@ -43,9 +43,12 @@ public class GitHubRepositoryAcquirer {
             command.add(uri.toString());
             command.add(target.toString());
 
-            Process process = new ProcessBuilder(command)
-                    .redirectErrorStream(true)
-                    .start();
+            ProcessBuilder processBuilder = new ProcessBuilder(command)
+                    .redirectErrorStream(true);
+            processBuilder.environment().put("GIT_TERMINAL_PROMPT", "0");
+            processBuilder.environment().put("GCM_INTERACTIVE", "Never");
+            processBuilder.environment().put("GIT_ASKPASS", "echo");
+            Process process = processBuilder.start();
             String output = new String(process.getInputStream().readAllBytes());
             int exitCode = process.waitFor();
             if (exitCode != 0) {
