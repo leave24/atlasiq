@@ -61,84 +61,75 @@ function Metric({label,value}:{label:string,value:number}){return <article style
 
 function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
   const [selected,setSelected]=useState<Node|null>(null);
-  const visibleNodes=nodes.filter(node=>node.type!=="repository").slice(0,48);
-  const groups=[
-    {key:"kubernetes",label:"Kubernetes",match:(node:Node)=>node.type.startsWith("kubernetes-")},
-    {key:"cicd",label:"CI / CD",match:(node:Node)=>node.type.startsWith("ci-")},
-    {key:"containers",label:"Containers",match:(node:Node)=>node.type==="container-image"},
-    {key:"terraform",label:"Terraform",match:(node:Node)=>node.type.startsWith("terraform-")},
-    {key:"other",label:"Other",match:(_:Node)=>true}
-  ];
-  const assigned=new Set<string>();
-  const buckets=groups.map(group=>{
-    const items=visibleNodes.filter(node=>!assigned.has(node.id)&&group.match(node));
-    items.forEach(node=>assigned.add(node.id));
-    return {...group,items};
-  }).filter(group=>group.items.length>0);
-
-  const width=1160;
-  const groupGap=24;
-  const groupWidth=(width-groupGap*(buckets.length-1))/Math.max(1,buckets.length);
-  const nodeWidth=Math.max(150,Math.min(210,groupWidth-32));
-  const nodeHeight=58;
-  const rowGap=94;
-  const maxRows=Math.max(1,...buckets.map(group=>group.items.length));
-  const height=110+maxRows*rowGap;
-  const positions=buckets.flatMap((group,groupIndex)=>group.items.map((node,rowIndex)=>({
-    node,
-    x:groupIndex*(groupWidth+groupGap)+groupWidth/2,
-    y:92+rowIndex*rowGap,
-    groupIndex
-  })));
-  const pos=new Map(positions.map(item=>[item.node.id,item]));
-  const visibleEdges=edges.filter(edge=>edge.relationship!=="contains"&&pos.has(edge.from)&&pos.has(edge.to));
-  const connected=new Set(visibleEdges.flatMap(edge=>[edge.from,edge.to]));
+  const [domain,setDomain]=useState("all");
+  const [showContainment,setShowContainment]=useState(false);
+  const domainOf=(node:Node)=>node.type.startsWith("kubernetes-")?"kubernetes":node.type.startsWith("ci-")?"cicd":node.type==="container-image"?"containers":node.type.startsWith("terraform-")?"terraform":"other";
+  const labels:Record<string,string>={all:"All",kubernetes:"Kubernetes",cicd:"CI / CD",containers:"Containers",terraform:"Terraform",other:"Other"};
+  const rank=(node:Node)=>{
+    const t=node.type;
+    if(t==="kubernetes-ingress")return 0;
+    if(t==="kubernetes-service")return 1;
+    if(t==="kubernetes-deployment"||t==="kubernetes-stateful-set"||t==="kubernetes-daemon-set")return 2;
+    if(t==="kubernetes-secret"||t==="kubernetes-config-map"||t==="kubernetes-service-account")return 3;
+    if(t==="ci-workflow")return 0;
+    if(t==="ci-job")return 1;
+    if(t==="ci-action")return 2;
+    if(t==="terraform-provider")return 0;
+    if(t==="terraform-module")return 1;
+    if(t==="terraform-resource"||t==="terraform-data")return 2;
+    return 1;
+  };
+  const all=nodes.filter(n=>n.type!=="repository");
+  const filtered=all.filter(n=>domain==="all"||domainOf(n)===domain).slice(0,48);
+  const domainKeys=[...new Set(filtered.map(domainOf))];
+  const width=1160, sectionGap=28;
+  const sectionWidth=(width-sectionGap*Math.max(0,domainKeys.length-1))/Math.max(1,domainKeys.length);
+  const nodeW=Math.max(150,Math.min(210,sectionWidth-32)), nodeH=58, rowGap=112;
+  const sections=domainKeys.map(key=>{
+    const items=filtered.filter(n=>domainOf(n)===key).sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name));
+    const ranks=[...new Set(items.map(rank))].sort((a,b)=>a-b);
+    const rankRows=new Map(ranks.map((r,i)=>[r,i]));
+    const byRank=new Map<number,Node[]>();
+    items.forEach(n=>byRank.set(rank(n),[...(byRank.get(rank(n))||[]),n]));
+    return {key,items,rankRows,byRank};
+  });
+  const maxDepth=Math.max(1,...sections.map(s=>s.rankRows.size));
+  const maxPerRank=Math.max(1,...sections.flatMap(s=>[...s.byRank.values()].map(v=>v.length)));
+  const height=120+maxDepth*rowGap+Math.max(0,maxPerRank-1)*72;
+  const positions=sections.flatMap((section,si)=>section.items.map(node=>{
+    const r=rank(node), peers=section.byRank.get(r)||[], peer=peers.findIndex(n=>n.id===node.id);
+    const center=si*(sectionWidth+sectionGap)+sectionWidth/2;
+    const spread=Math.min(nodeW+18,Math.max(72,(sectionWidth-28)/Math.max(1,peers.length)));
+    return {node,x:center+(peer-(peers.length-1)/2)*spread,y:96+(section.rankRows.get(r)||0)*rowGap,section:si};
+  }));
+  const pos=new Map(positions.map(p=>[p.node.id,p]));
+  const visibleEdges=edges.filter(edge=>(showContainment||edge.relationship!=="contains")&&pos.has(edge.from)&&pos.has(edge.to));
+  const domains=[...new Set(all.map(domainOf))];
 
   return <section>
-    <p style={{opacity:.7,marginTop:-8}}>Grouped by architecture domain. Repository containment edges are hidden to reduce visual noise.</p>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",margin:"0 0 14px"}}>
+      {["all",...domains].map(key=><button key={key} onClick={()=>setDomain(key)} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:domain===key?700:400}}>{labels[key]}</button>)}
+      <label style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}><input type="checkbox" checked={showContainment} onChange={e=>setShowContainment(e.target.checked)}/> Show containment</label>
+    </div>
     <div style={{overflowX:"auto",border:"1px solid",borderRadius:10,padding:8}}>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",minWidth:900,height:"auto"}} role="img" aria-label="Repository architecture graph">
-        <defs>
-          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
-          </marker>
-        </defs>
-        {buckets.map((group,i)=>{
-          const x=i*(groupWidth+groupGap);
-          return <g key={group.key}>
-            <rect x={x+4} y="8" width={groupWidth-8} height={height-16} rx="12" fill="none" stroke="currentColor" opacity=".22"/>
-            <text x={x+18} y="34" fontSize="14" fontWeight="700" fill="currentColor">{group.label}</text>
-            <text x={x+18} y="52" fontSize="10" fill="currentColor" opacity=".55">{group.items.length} components</text>
-          </g>;
-        })}
-        {visibleEdges.map((edge,i)=>{
-          const from=pos.get(edge.from)!; const to=pos.get(edge.to)!;
-          const sameGroup=from.groupIndex===to.groupIndex;
-          const midY=(from.y+to.y)/2;
-          const d=sameGroup
-            ? `M ${from.x} ${from.y+nodeHeight/2} C ${from.x+55} ${midY}, ${to.x+55} ${midY}, ${to.x} ${to.y-nodeHeight/2}`
-            : `M ${from.x} ${from.y} C ${(from.x+to.x)/2} ${from.y}, ${(from.x+to.x)/2} ${to.y}, ${to.x} ${to.y}`;
-          return <g key={`${edge.from}-${edge.to}-${i}`} opacity=".55">
-            <path d={d} fill="none" stroke="currentColor" strokeWidth="1.4" markerEnd="url(#arrow)"/>
-            <title>{edge.relationship}</title>
-          </g>;
-        })}
-        {positions.map(({node,x,y})=><g key={node.id} onClick={()=>setSelected(node)} style={{cursor:"pointer"}} opacity={connected.has(node.id)?1:.72}>
-          <rect x={x-nodeWidth/2} y={y-nodeHeight/2} width={nodeWidth} height={nodeHeight} rx="8" fill="#0b1117" stroke="currentColor"/>
-          <text x={x} y={y-7} textAnchor="middle" fontSize="10" fill="currentColor" opacity=".65">{node.type.replace(/^kubernetes-/,"k8s · ").replace(/^ci-/,"ci · ").replace(/^terraform-/,"tf · ")}</text>
-          <text x={x} y={y+13} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">{shorten(node.name,22)}</text>
-        </g>)}
+      <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",minWidth:900,height:"auto"}} role="img" aria-label="Semantic repository architecture graph">
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="currentColor"/></marker></defs>
+        {sections.map((section,i)=>{const x=i*(sectionWidth+sectionGap);return <g key={section.key}><rect x={x+4} y="8" width={sectionWidth-8} height={height-16} rx="12" fill="none" stroke="currentColor" opacity=".2"/><text x={x+18} y="34" fontSize="14" fontWeight="700" fill="currentColor">{labels[section.key]}</text><text x={x+18} y="52" fontSize="10" fill="currentColor" opacity=".55">{section.items.length} components</text></g>})}
+        {visibleEdges.map((edge,i)=>{const a=pos.get(edge.from)!,b=pos.get(edge.to)!;const mid=(a.y+b.y)/2;const d=`M ${a.x} ${a.y+nodeH/2} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${b.y-nodeH/2}`;return <g key={i} opacity={edge.relationship==="contains"?.22:.58}><path d={d} fill="none" stroke="currentColor" strokeWidth="1.4" markerEnd="url(#arrow)"/><title>{edge.relationship}</title></g>})}
+        {positions.map(({node,x,y})=><g key={node.id} onClick={()=>setSelected(node)} style={{cursor:"pointer"}}><rect x={x-nodeW/2} y={y-nodeH/2} width={nodeW} height={nodeH} rx="8" fill="#0b1117" stroke="currentColor"/><text x={x} y={y-7} textAnchor="middle" fontSize="10" fill="currentColor" opacity=".65">{node.type.replace(/^kubernetes-/,"k8s · ").replace(/^ci-/,"ci · ").replace(/^terraform-/,"tf · ")}</text><text x={x} y={y+13} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">{shorten(displayName(node),24)}</text></g>)}
       </svg>
     </div>
-    <p><small>Showing {visibleNodes.length} of {nodes.filter(node=>node.type!=="repository").length} non-repository components. Hover a connection for its relationship; select a node for details.</small></p>
-    {selected&&<aside style={{border:"1px solid",borderRadius:8,padding:16,marginTop:12}}>
-      <strong>{selected.name}</strong>
-      <p><small>{selected.type} · {selected.source}</small></p>
-      <code style={{wordBreak:"break-all"}}>{selected.id}</code>
-      {selected.metadata&&Object.keys(selected.metadata).length>0&&<pre style={{whiteSpace:"pre-wrap",overflowX:"auto"}}>{JSON.stringify(selected.metadata,null,2)}</pre>}
-      <button onClick={()=>setSelected(null)} style={{padding:"8px 12px"}}>Close details</button>
-    </aside>}
+    <p><small>Semantic layout: infrastructure entry points and workflows appear above their dependants. Showing {filtered.length} of {all.length} components.</small></p>
+    {selected&&<aside style={{border:"1px solid",borderRadius:8,padding:16,marginTop:12}}><strong>{displayName(selected)}</strong><p><small>{selected.type} · {selected.source}</small></p><code style={{wordBreak:"break-all"}}>{selected.id}</code>{selected.metadata&&Object.keys(selected.metadata).length>0&&<pre style={{whiteSpace:"pre-wrap",overflowX:"auto"}}>{JSON.stringify(selected.metadata,null,2)}</pre>}<button onClick={()=>setSelected(null)} style={{padding:"8px 12px"}}>Close details</button></aside>}
   </section>;
+}
+
+function displayName(node:Node){
+  if(node.type==="container-image"){
+    const path=node.id.replace(/^docker:/,"");
+    return path&&path!=="Dockerfile"?path:node.source||node.name;
+  }
+  return node.name;
 }
 
 function shorten(value:string,max:number){return value.length<=max?value:`${value.slice(0,max-1)}…`;}
