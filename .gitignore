@@ -1,0 +1,32 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Java / Maven / Quarkus
+**/target/
+*.class
+*.jar
+*.war
+
+# Node / Next.js
+**/node_modules/
+**/.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment / local overrides
+.env
+.env.*
+!.env.example
+*.local
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local helper/install artifacts
+get_helm.sh
