@@ -38,7 +38,7 @@ export default function Home() {
 
     {model && <>
       <section style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:24}}>
-        <Metric label="Components" value={model.nodes.length}/>
+        <Metric label="Components" value={model.nodes.filter(n=>n.type!=="repository").length}/>
         <Metric label="Relationships" value={model.edges.length}/>
         <Metric label="Findings" value={model.findings.length}/>
         <Metric label="Critical / High" value={model.findings.filter(f=>["CRITICAL","HIGH"].includes(f.severity)).length}/>
@@ -66,10 +66,10 @@ function RepositoryAnalysisSummary({model}:{model:Model}){
   const terraform=model.nodes.filter(node=>node.type.startsWith("terraform-")).length;
   const criticalHigh=model.findings.filter(f=>["CRITICAL","HIGH"].includes(f.severity)).length;
   const technologies=[
-    {label:"Kubernetes",value:kubernetes?\`Detected (\${kubernetes} components)\`:"Not detected"},
-    {label:"Containers",value:containers?\`Detected (\${containers} images)\`:"Not detected"},
-    {label:"CI / CD",value:workflows?\`GitHub Actions (\${workflows} workflows)\`:"Not detected"},
-    {label:"Terraform",value:terraform?\`Detected (\${terraform} components)\`:"Not detected"}
+    {label:"Kubernetes",value:kubernetes?`Detected (${kubernetes} components)`:"Not detected"},
+    {label:"Containers",value:containers?`Detected (${containers} images)`:"Not detected"},
+    {label:"CI / CD",value:workflows?`GitHub Actions (${workflows} workflows)`:"Not detected"},
+    {label:"Terraform",value:terraform?`Detected (${terraform} components)`:"Not detected"}
   ];
   return <section style={{border:"1px solid",borderRadius:10,padding:18,margin:"0 0 28px"}}>
     <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",alignItems:"baseline"}}>
