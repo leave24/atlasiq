@@ -82,25 +82,28 @@ function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
   const all=nodes.filter(n=>n.type!=="repository");
   const filtered=all.filter(n=>domain==="all"||domainOf(n)===domain).slice(0,48);
   const domainKeys=[...new Set(filtered.map(domainOf))];
-  const width=1160, sectionGap=28;
-  const sectionWidth=(width-sectionGap*Math.max(0,domainKeys.length-1))/Math.max(1,domainKeys.length);
-  const nodeW=Math.max(150,Math.min(210,sectionWidth-32)), nodeH=58, rowGap=112;
+  const sectionGap=28, nodeW=210, nodeH=58, rowGap=112, nodeGap=24, sectionPadding=28;
   const sections=domainKeys.map(key=>{
     const items=filtered.filter(n=>domainOf(n)===key).sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name));
     const ranks=[...new Set(items.map(rank))].sort((a,b)=>a-b);
     const rankRows=new Map(ranks.map((r,i)=>[r,i]));
     const byRank=new Map<number,Node[]>();
     items.forEach(n=>byRank.set(rank(n),[...(byRank.get(rank(n))||[]),n]));
-    return {key,items,rankRows,byRank};
+    const maxPeers=Math.max(1,...[...byRank.values()].map(peers=>peers.length));
+    const sectionWidth=Math.max(280,sectionPadding*2+maxPeers*nodeW+Math.max(0,maxPeers-1)*nodeGap);
+    return {key,items,rankRows,byRank,sectionWidth};
   });
   const maxDepth=Math.max(1,...sections.map(s=>s.rankRows.size));
-  const maxPerRank=Math.max(1,...sections.flatMap(s=>[...s.byRank.values()].map(v=>v.length)));
-  const height=120+maxDepth*rowGap+Math.max(0,maxPerRank-1)*72;
+  const height=120+maxDepth*rowGap;
+  const offsets:number[]=[];
+  let cursor=0;
+  sections.forEach(section=>{offsets.push(cursor);cursor+=section.sectionWidth+sectionGap;});
+  const width=Math.max(1160,cursor-Math.min(sectionGap,cursor));
   const positions=sections.flatMap((section,si)=>section.items.map(node=>{
     const r=rank(node), peers=section.byRank.get(r)||[], peer=peers.findIndex(n=>n.id===node.id);
-    const center=si*(sectionWidth+sectionGap)+sectionWidth/2;
-    const spread=Math.min(nodeW+18,Math.max(72,(sectionWidth-28)/Math.max(1,peers.length)));
-    return {node,x:center+(peer-(peers.length-1)/2)*spread,y:96+(section.rankRows.get(r)||0)*rowGap,section:si};
+    const rowWidth=peers.length*nodeW+Math.max(0,peers.length-1)*nodeGap;
+    const rowStart=offsets[si]+(section.sectionWidth-rowWidth)/2+nodeW/2;
+    return {node,x:rowStart+peer*(nodeW+nodeGap),y:96+(section.rankRows.get(r)||0)*rowGap,section:si};
   }));
   const pos=new Map(positions.map(p=>[p.node.id,p]));
   const visibleEdges=edges.filter(edge=>(showContainment||edge.relationship!=="contains")&&pos.has(edge.from)&&pos.has(edge.to));
@@ -112,9 +115,9 @@ function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
       <label style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}><input type="checkbox" checked={showContainment} onChange={e=>setShowContainment(e.target.checked)}/> Show containment</label>
     </div>
     <div style={{overflowX:"auto",border:"1px solid",borderRadius:10,padding:8}}>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",minWidth:900,height:"auto"}} role="img" aria-label="Semantic repository architecture graph">
+      <svg viewBox={`0 0 ${width} ${height}`} style={{width:Math.max(900,width),height:"auto",maxWidth:"none"}} role="img" aria-label="Semantic repository architecture graph">
         <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="currentColor"/></marker></defs>
-        {sections.map((section,i)=>{const x=i*(sectionWidth+sectionGap);return <g key={section.key}><rect x={x+4} y="8" width={sectionWidth-8} height={height-16} rx="12" fill="none" stroke="currentColor" opacity=".2"/><text x={x+18} y="34" fontSize="14" fontWeight="700" fill="currentColor">{labels[section.key]}</text><text x={x+18} y="52" fontSize="10" fill="currentColor" opacity=".55">{section.items.length} components</text></g>})}
+        {sections.map((section,i)=>{const x=offsets[i];return <g key={section.key}><rect x={x+4} y="8" width={section.sectionWidth-8} height={height-16} rx="12" fill="none" stroke="currentColor" opacity=".2"/><text x={x+18} y="34" fontSize="14" fontWeight="700" fill="currentColor">{labels[section.key]}</text><text x={x+18} y="52" fontSize="10" fill="currentColor" opacity=".55">{section.items.length} components</text></g>})}
         {visibleEdges.map((edge,i)=>{const a=pos.get(edge.from)!,b=pos.get(edge.to)!;const mid=(a.y+b.y)/2;const d=`M ${a.x} ${a.y+nodeH/2} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${b.y-nodeH/2}`;return <g key={i} opacity={edge.relationship==="contains"?.22:.58}><path d={d} fill="none" stroke="currentColor" strokeWidth="1.4" markerEnd="url(#arrow)"/><title>{edge.relationship}</title></g>})}
         {positions.map(({node,x,y})=><g key={node.id} onClick={()=>setSelected(node)} style={{cursor:"pointer"}}><rect x={x-nodeW/2} y={y-nodeH/2} width={nodeW} height={nodeH} rx="8" fill="#0b1117" stroke="currentColor"/><text x={x} y={y-7} textAnchor="middle" fontSize="10" fill="currentColor" opacity=".65">{node.type.replace(/^kubernetes-/,"k8s · ").replace(/^ci-/,"ci · ").replace(/^terraform-/,"tf · ")}</text><text x={x} y={y+13} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">{shorten(displayName(node),24)}</text></g>)}
       </svg>
