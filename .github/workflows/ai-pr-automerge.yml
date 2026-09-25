@@ -1,0 +1,95 @@
+name: AI PR Auto Merge
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  statuses: read
+
+jobs:
+  review-and-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate labeled PRs and merge only when green
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const allowedConclusions = new Set(['success', 'neutral', 'skipped']);
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            for (const pr of pulls) {
+              const labels = (pr.labels || []).map(label => label.name);
+              if (!labels.includes('automerge-ai')) continue;
+              if (pr.draft) {
+                core.info(`#${pr.number}: draft, skipping`);
+                continue;
+              }
+              if (pr.base.ref !== 'main') {
+                core.info(`#${pr.number}: base is ${pr.base.ref}, skipping`);
+                continue;
+              }
+              if ((pr.requested_reviewers || []).length > 0 || (pr.requested_teams || []).length > 0) {
+                core.info(`#${pr.number}: reviews still requested, skipping`);
+                continue;
+              }
+
+              const sha = pr.head.sha;
+              const { data: checkData } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref: sha,
+                per_page: 100
+              });
+
+              const checks = checkData.check_runs.filter(run => run.name !== 'review-and-merge');
+              if (checks.length === 0) {
+                core.info(`#${pr.number}: no checks found, skipping`);
+                continue;
+              }
+
+              const checksGreen = checks.every(run =>
+                run.status === 'completed' && allowedConclusions.has(run.conclusion)
+              );
+              if (!checksGreen) {
+                core.info(`#${pr.number}: checks are not fully green, skipping`);
+                continue;
+              }
+
+              const { data: statusData } = await github.rest.repos.getCombinedStatusForRef({
+                owner,
+                repo,
+                ref: sha
+              });
+              if (statusData.total_count > 0 && statusData.state !== 'success') {
+                core.info(`#${pr.number}: commit statuses are not green, skipping`);
+                continue;
+              }
+
+              const { data: fresh } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+              if (fresh.mergeable !== true || fresh.mergeable_state === 'dirty' || fresh.mergeable_state === 'blocked') {
+                core.info(`#${pr.number}: not safely mergeable (${fresh.mergeable_state}), skipping`);
+                continue;
+              }
+
+              await github.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: pr.number,
+                merge_method: 'squash',
+                sha
+              });
+              core.notice(`#${pr.number}: merged after all checks passed`);
+            }
