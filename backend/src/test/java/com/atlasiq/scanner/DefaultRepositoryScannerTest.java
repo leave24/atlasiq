@@ -100,6 +100,7 @@ class DefaultRepositoryScannerTest {
                 new DockerfileParser(),
                 new GitHubActionsParser(),
                 new TerraformParser(),
+                new GitHubRepositoryAcquirer(workspace.toString()),
                 workspace.toString());
     }
 }

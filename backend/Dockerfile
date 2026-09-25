@@ -6,7 +6,10 @@ RUN mvn -B package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 10001 atlasiq
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 atlasiq
 COPY --from=build /workspace/target/quarkus-app/lib/ /app/lib/
 COPY --from=build /workspace/target/quarkus-app/*.jar /app/
 COPY --from=build /workspace/target/quarkus-app/app/ /app/app/

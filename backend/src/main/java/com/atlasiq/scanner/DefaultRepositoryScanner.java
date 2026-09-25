@@ -23,6 +23,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
     private final DockerfileParser dockerfileParser;
     private final GitHubActionsParser githubActionsParser;
     private final TerraformParser terraformParser;
+    private final GitHubRepositoryAcquirer repositoryAcquirer;
     private final Path workspaceRoot;
 
     public DefaultRepositoryScanner(
@@ -30,17 +31,37 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
             DockerfileParser dockerfileParser,
             GitHubActionsParser githubActionsParser,
             TerraformParser terraformParser,
+            GitHubRepositoryAcquirer repositoryAcquirer,
             @ConfigProperty(name = "atlasiq.workspace.root", defaultValue = "/workspace") String workspaceRoot) {
         this.kubernetesParser = kubernetesParser;
         this.dockerfileParser = dockerfileParser;
         this.githubActionsParser = githubActionsParser;
         this.terraformParser = terraformParser;
+        this.repositoryAcquirer = repositoryAcquirer;
         this.workspaceRoot = Path.of(workspaceRoot).toAbsolutePath().normalize();
     }
 
     @Override
     public QirModel scan(ScanRequest request) {
-        Path repositoryPath = resolveRepository(request.repository());
+        if (request == null || request.repository() == null || request.repository().isBlank()) {
+            throw new IllegalArgumentException("repository is required");
+        }
+
+        if (request.repository().trim().startsWith("https://")) {
+            var acquired = repositoryAcquirer.acquire(request.repository(), request.ref());
+            try {
+                return scanPath(request.repository(), acquired.ref(), acquired.path(), "public-github");
+            } finally {
+                repositoryAcquirer.cleanup(acquired.path());
+            }
+        }
+
+        Path repositoryPath = resolveLocalRepository(request.repository());
+        String ref = request.ref() == null || request.ref().isBlank() ? "local" : request.ref();
+        return scanPath(request.repository(), ref, repositoryPath, "local-workspace");
+    }
+
+    private QirModel scanPath(String repository, String ref, Path repositoryPath, String source) {
         var kubernetes = kubernetesParser.parse(repositoryPath);
         var docker = dockerfileParser.parse(repositoryPath);
         var githubActions = githubActionsParser.parse(repositoryPath);
@@ -53,9 +74,9 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         nodes.add(new QirNode(
                 "repository",
                 "repository",
-                request.repository(),
-                "local-workspace",
-                Map.of("ref", request.ref(), "workspace", repositoryPath.toString())));
+                repository,
+                source,
+                Map.of("ref", ref, "workspace", repositoryPath.toString())));
         nodes.addAll(kubernetes.nodes());
         nodes.addAll(docker.nodes());
         nodes.addAll(githubActions.nodes());
@@ -75,22 +96,20 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
                         "repository",
                         node.id(),
                         "contains",
-                        Map.of("source", "workspace"))));
+                        Map.of("source", source))));
 
-        return new QirModel(request.repository(), request.ref(), nodes, edges, findings);
+        return new QirModel(repository, ref, nodes, edges, findings);
     }
 
-    private Path resolveRepository(String repository) {
-        if (repository == null || repository.isBlank()) {
-            throw new IllegalArgumentException("repository is required");
-        }
-
+    private Path resolveLocalRepository(String repository) {
         Path candidate = workspaceRoot.resolve(repository).normalize();
         if (!candidate.startsWith(workspaceRoot)) {
             throw new IllegalArgumentException("repository must stay inside the configured workspace root");
         }
         if (!Files.isDirectory(candidate)) {
-            throw new IllegalArgumentException("repository workspace does not exist: " + repository);
+            throw new IllegalArgumentException(
+                    "repository workspace does not exist: " + repository
+                            + ". Use a public https://github.com/owner/repository URL or prepare a local workspace.");
         }
         return candidate;
     }
