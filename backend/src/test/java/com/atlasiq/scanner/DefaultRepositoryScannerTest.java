@@ -1,6 +1,7 @@
 package com.atlasiq.scanner;
 
 import com.atlasiq.parser.docker.DockerfileParser;
+import com.atlasiq.parser.githubactions.GitHubActionsParser;
 import com.atlasiq.parser.kubernetes.KubernetesParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -61,6 +62,18 @@ class DefaultRepositoryScannerTest {
                 USER 10001
                 COPY target/app.jar /app/app.jar
                 """);
+        Path workflows = Files.createDirectories(repository.resolve(".github/workflows"));
+        Files.writeString(workflows.resolve("ci.yml"), """
+                name: CI
+                on: push
+                permissions:
+                  contents: read
+                jobs:
+                  build:
+                    runs-on: ubuntu-latest
+                    steps:
+                      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+                """);
 
         var scanner = scanner();
         var qir = scanner.scan(new ScanRequest("demo", "local"));
@@ -68,7 +81,9 @@ class DefaultRepositoryScannerTest {
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("repository")));
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("kubernetes-deployment")));
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("container-image")));
+        assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("ci-workflow")));
         assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("selects")));
+        assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("uses")));
         assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("contains")));
     }
 
@@ -79,6 +94,10 @@ class DefaultRepositoryScannerTest {
     }
 
     private DefaultRepositoryScanner scanner() {
-        return new DefaultRepositoryScanner(new KubernetesParser(), new DockerfileParser(), workspace.toString());
+        return new DefaultRepositoryScanner(
+                new KubernetesParser(),
+                new DockerfileParser(),
+                new GitHubActionsParser(),
+                workspace.toString());
     }
 }
