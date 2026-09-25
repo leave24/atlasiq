@@ -53,7 +53,7 @@ public class KubernetesParser {
                 JsonNode doc = documents.next();
                 String kind = text(doc, "kind");
                 String name = text(doc.path("metadata"), "name");
-                if (!SUPPORTED.contains(kind) || name == null) continue;
+                if (kind == null || name == null || !SUPPORTED.contains(kind)) continue;
 
                 String namespace = text(doc.path("metadata"), "namespace");
                 if (namespace == null) namespace = "default";
