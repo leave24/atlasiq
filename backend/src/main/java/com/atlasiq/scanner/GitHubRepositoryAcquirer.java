@@ -14,10 +14,13 @@ import java.util.UUID;
 public class GitHubRepositoryAcquirer {
 
     private final Path workspaceRoot;
+    private final String githubToken;
 
     public GitHubRepositoryAcquirer(
-            @ConfigProperty(name = "atlasiq.workspace.root", defaultValue = "/workspace") String workspaceRoot) {
+            @ConfigProperty(name = "atlasiq.workspace.root", defaultValue = "/workspace") String workspaceRoot,
+            @ConfigProperty(name = "atlasiq.github.token", defaultValue = "") String githubToken) {
         this.workspaceRoot = Path.of(workspaceRoot).toAbsolutePath().normalize();
+        this.githubToken = githubToken == null ? "" : githubToken.trim();
     }
 
     public AcquiredRepository acquire(String repository, String ref) {
@@ -47,13 +50,20 @@ public class GitHubRepositoryAcquirer {
                     .redirectErrorStream(true);
             processBuilder.environment().put("GIT_TERMINAL_PROMPT", "0");
             processBuilder.environment().put("GCM_INTERACTIVE", "Never");
-            processBuilder.environment().put("GIT_ASKPASS", "echo");
+            if (!githubToken.isBlank()) {
+                processBuilder.environment().put("ATLQ_GITHUB_TOKEN", githubToken);
+                processBuilder.environment().put("GIT_CONFIG_COUNT", "1");
+                processBuilder.environment().put("GIT_CONFIG_KEY_0", "http.https://github.com/.extraheader");
+                processBuilder.environment().put("GIT_CONFIG_VALUE_0", basicAuthorization(githubToken));
+            } else {
+                processBuilder.environment().put("GIT_ASKPASS", "echo");
+            }
             Process process = processBuilder.start();
             String output = new String(process.getInputStream().readAllBytes());
             int exitCode = process.waitFor();
             if (exitCode != 0) {
                 deleteRecursively(target);
-                throw new IllegalArgumentException("unable to clone public GitHub repository: " + sanitize(output));
+                throw new IllegalArgumentException("unable to clone GitHub repository: " + sanitize(output));
             }
             return new AcquiredRepository(target, normalizedRef == null ? "default" : normalizedRef);
         } catch (IOException e) {
@@ -88,7 +98,7 @@ public class GitHubRepositoryAcquirer {
                 || uri.getPort() != -1
                 || uri.getQuery() != null
                 || uri.getFragment() != null) {
-            throw new IllegalArgumentException("only public https://github.com/owner/repository URLs are supported");
+            throw new IllegalArgumentException("only https://github.com/owner/repository URLs are supported");
         }
         String[] segments = uri.getPath().split("/");
         if (segments.length != 3 || segments[1].isBlank() || segments[2].isBlank()) {
@@ -111,6 +121,12 @@ public class GitHubRepositoryAcquirer {
     private static String repositoryName(URI uri) {
         String name = uri.getPath().substring(uri.getPath().lastIndexOf('/') + 1);
         return name.endsWith(".git") ? name.substring(0, name.length() - 4) : name;
+    }
+
+    private static String basicAuthorization(String token) {
+        String credentials = "x-access-token:" + token;
+        return "AUTHORIZATION: basic " + java.util.Base64.getEncoder()
+                .encodeToString(credentials.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private static String sanitize(String output) {
