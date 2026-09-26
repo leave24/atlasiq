@@ -42,6 +42,48 @@ class CrossRepositoryDependencyResolverTest {
     }
 
     @Test
+    void resolvesSanitizedDependencyHintAndCarriesSourceEvidence() {
+        QirNode hint = node("repo:web::dependency:config", "application.properties", "repo:web",
+                Map.of("targetHost", "orders_internal", "targetUrl", "https://orders_internal:8443",
+                        "evidenceFile", "application.properties", "evidenceKind", "declared-url"));
+        QirNode service = node("repo:orders::service", "orders-service", "repo:orders",
+                Map.of("hostname", "orders_internal"));
+
+        var edges = resolver.resolve(List.of(hint, service));
+
+        assertEquals(1, edges.size());
+        assertEquals("calls", edges.getFirst().relationship());
+        assertEquals("targetHost", edges.getFirst().metadata().get("evidence"));
+        assertEquals("application.properties", edges.getFirst().metadata().get("evidenceFile"));
+        assertEquals("declared-url", edges.getFirst().metadata().get("evidenceKind"));
+    }
+
+    @Test
+    void resolvesLegacyTargetUrlWithInternalUnderscoreHost() {
+        QirNode hint = node("repo:web::dependency:config", "application.properties", "repo:web",
+                Map.of("targetUrl", "http://orders_internal:8080/api"));
+        QirNode service = node("repo:orders::service", "orders-service", "repo:orders",
+                Map.of("host", "orders_internal"));
+
+        var edges = resolver.resolve(List.of(hint, service));
+
+        assertEquals(1, edges.size());
+        assertEquals(service.id(), edges.getFirst().to());
+    }
+
+    @Test
+    void deduplicatesEquivalentExplicitEvidence() {
+        QirNode source = node("repo:web::client", "client", "repo:web",
+                Map.of("targetHost", "orders.internal", "targetService", "orders.internal"));
+        QirNode target = node("repo:orders::service", "orders.internal", "repo:orders", Map.of());
+
+        var edges = resolver.resolve(List.of(source, target));
+
+        assertEquals(1, edges.size());
+        assertEquals("calls", edges.getFirst().relationship());
+    }
+
+    @Test
     void ignoresAmbiguousTargetsInsteadOfGuessing() {
         QirNode source = node("repo:web::client", "client", "repo:web", Map.of("targetService", "api"));
         QirNode first = node("repo:a::api", "api", "repo:a", Map.of());
