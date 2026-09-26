@@ -1,0 +1,13 @@
+CREATE TABLE atlasiq_organization(id VARCHAR(36) PRIMARY KEY,name VARCHAR(255) NOT NULL,plan VARCHAR(32) NOT NULL DEFAULT 'free',created_at TIMESTAMP NOT NULL);
+CREATE TABLE atlasiq_workspace(id VARCHAR(36) PRIMARY KEY,organization_id VARCHAR(36) NOT NULL,name VARCHAR(255) NOT NULL,created_at TIMESTAMP NOT NULL,CONSTRAINT fk_workspace_org FOREIGN KEY(organization_id) REFERENCES atlasiq_organization(id));
+CREATE TABLE atlasiq_membership(id VARCHAR(36) PRIMARY KEY,organization_id VARCHAR(36) NOT NULL,workspace_id VARCHAR(36),subject VARCHAR(512) NOT NULL,role VARCHAR(64) NOT NULL,created_at TIMESTAMP NOT NULL,UNIQUE(organization_id,workspace_id,subject,role));
+CREATE TABLE atlasiq_api_key(id VARCHAR(36) PRIMARY KEY,organization_id VARCHAR(36) NOT NULL,workspace_id VARCHAR(36),name VARCHAR(255) NOT NULL,key_hash VARCHAR(128) NOT NULL UNIQUE,role VARCHAR(64) NOT NULL,created_at TIMESTAMP NOT NULL,revoked_at TIMESTAMP);
+CREATE TABLE atlasiq_service_account(id VARCHAR(36) PRIMARY KEY,organization_id VARCHAR(36) NOT NULL,workspace_id VARCHAR(36),name VARCHAR(255) NOT NULL,role VARCHAR(64) NOT NULL,created_at TIMESTAMP NOT NULL,disabled_at TIMESTAMP);
+CREATE TABLE atlasiq_audit_event(id VARCHAR(36) PRIMARY KEY,at TIMESTAMP NOT NULL,organization_id VARCHAR(36) NOT NULL,workspace_id VARCHAR(36),actor VARCHAR(512) NOT NULL,action VARCHAR(255) NOT NULL,resource VARCHAR(1024) NOT NULL,event_hash VARCHAR(128) NOT NULL,previous_hash VARCHAR(128));
+CREATE TABLE atlasiq_usage(id VARCHAR(36) PRIMARY KEY,organization_id VARCHAR(36) NOT NULL,workspace_id VARCHAR(36),metric VARCHAR(128) NOT NULL,quantity BIGINT NOT NULL,at TIMESTAMP NOT NULL,idempotency_key VARCHAR(255),UNIQUE(organization_id,idempotency_key));
+CREATE TABLE atlasiq_webhook_delivery(id VARCHAR(36) PRIMARY KEY,organization_id VARCHAR(36) NOT NULL,workspace_id VARCHAR(36),webhook_id VARCHAR(36) NOT NULL,event_type VARCHAR(128) NOT NULL,payload TEXT NOT NULL,idempotency_key VARCHAR(255) NOT NULL,status VARCHAR(32) NOT NULL,attempts INT NOT NULL DEFAULT 0,next_attempt_at TIMESTAMP,created_at TIMESTAMP NOT NULL,UNIQUE(webhook_id,idempotency_key));
+CREATE INDEX idx_workspace_org ON atlasiq_workspace(organization_id);
+CREATE INDEX idx_membership_tenant_subject ON atlasiq_membership(organization_id,workspace_id,subject);
+CREATE INDEX idx_audit_tenant_at ON atlasiq_audit_event(organization_id,workspace_id,at);
+CREATE INDEX idx_usage_tenant_at ON atlasiq_usage(organization_id,workspace_id,at);
+CREATE INDEX idx_delivery_retry ON atlasiq_webhook_delivery(status,next_attempt_at);
