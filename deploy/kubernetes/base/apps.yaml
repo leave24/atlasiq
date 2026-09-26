@@ -22,8 +22,20 @@ spec:
           ports:
             - containerPort: 8080
           env:
+            - name: ATLASIQ_DB_KIND
+              value: postgresql
             - name: ATLASIQ_DATABASE_URL
               value: jdbc:postgresql://postgres:5432/atlasiq
+            - name: ATLASIQ_DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: ATLASIQ_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
             - name: ATLASIQ_WORKSPACE_ROOT
               value: /workspace
           volumeMounts:

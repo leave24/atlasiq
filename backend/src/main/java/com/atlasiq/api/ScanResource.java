@@ -5,6 +5,7 @@ import com.atlasiq.qir.QirModel;
 import com.atlasiq.scanner.MultiScanRequest;
 import com.atlasiq.scanner.RepositoryScanner;
 import com.atlasiq.scanner.ScanRequest;
+import com.atlasiq.persistence.AnalysisStore;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -18,15 +19,19 @@ public class ScanResource {
 
     private final RepositoryScanner scanner;
     private final QirAggregator aggregator;
+    private final AnalysisStore store;
 
-    public ScanResource(RepositoryScanner scanner, QirAggregator aggregator) {
+    public ScanResource(RepositoryScanner scanner, QirAggregator aggregator, AnalysisStore store) {
         this.scanner = scanner;
         this.aggregator = aggregator;
+        this.store = store;
     }
 
     @POST
     public QirModel scan(ScanRequest request) {
-        return scanner.scan(request);
+        var model = scanner.scan(request);
+        store.save(model);
+        return model;
     }
 
     @POST
@@ -41,6 +46,8 @@ public class ScanResource {
         var models = request.repositories().stream()
                 .map(repo -> scanner.scan(new ScanRequest(repo.repository(), repo.ref(), request.system())))
                 .toList();
-        return aggregator.aggregate(request.system(), models);
+        var model = aggregator.aggregate(request.system(), models);
+        store.save(model);
+        return model;
     }
 }
