@@ -10,6 +10,7 @@ public class AnalysisResource {
  private final AnalysisStore store;
  public AnalysisResource(AnalysisStore store){this.store=store;}
  @GET public List<StoredAnalysis> recent(@QueryParam("limit") @DefaultValue("20") int limit){return store.recent(limit);}
+ @GET @Path("/history") public List<StoredAnalysis> history(@QueryParam("repository") String repository,@QueryParam("system") String system,@QueryParam("limit") @DefaultValue("50") int limit){return store.history(repository,system,limit);}
  @GET @Path("/{id}") public StoredAnalysis get(@PathParam("id") String id){
   return store.find(id).orElseThrow(()->new NotFoundException("analysis not found"));
  }

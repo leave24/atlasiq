@@ -39,5 +39,14 @@ public class JdbcAnalysisStore implements AnalysisStore {
    p.setMaxRows(safe);try(ResultSet r=p.executeQuery()){List<StoredAnalysis> out=new ArrayList<>();while(r.next())out.add(read(r));return List.copyOf(out);}
   }catch(Exception e){throw new IllegalStateException("unable to list analyses",e);}
  }
+ @Override public List<StoredAnalysis> history(String repository,String system,int limit){
+  int safe=Math.max(1,Math.min(limit,200)); StringBuilder sql=new StringBuilder("SELECT id,created_at,qir_json FROM atlasiq_analysis WHERE 1=1");
+  List<String> args=new ArrayList<>(); if(repository!=null&&!repository.isBlank()){sql.append(" AND repository=?");args.add(repository);}
+  if(system!=null&&!system.isBlank()){sql.append(" AND system_name=?");args.add(system);} sql.append(" ORDER BY created_at DESC");
+  try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql.toString())){
+   for(int i=0;i<args.size();i++)p.setString(i+1,args.get(i));p.setMaxRows(safe);
+   try(ResultSet r=p.executeQuery()){List<StoredAnalysis> out=new ArrayList<>();while(r.next())out.add(read(r));return List.copyOf(out);}
+  }catch(Exception e){throw new IllegalStateException("unable to read analysis history",e);}
+ }
  private StoredAnalysis read(ResultSet r)throws Exception{return new StoredAnalysis(r.getString(1),r.getTimestamp(2).toInstant(),mapper.readValue(r.getString(3),QirModel.class));}
 }

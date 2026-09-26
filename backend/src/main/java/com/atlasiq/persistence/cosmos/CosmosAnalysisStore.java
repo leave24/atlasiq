@@ -13,7 +13,9 @@ public abstract class CosmosAnalysisStore implements AnalysisStore {
  protected abstract StoredAnalysis writeDocument(QirModel model);
  protected abstract Optional<StoredAnalysis> readDocument(String id);
  protected abstract List<StoredAnalysis> queryRecentDocuments(int limit);
+ protected abstract List<StoredAnalysis> queryHistoryDocuments(String repository,String system,int limit);
  @Override public StoredAnalysis save(QirModel model){return writeDocument(model);}
  @Override public Optional<StoredAnalysis> find(String id){return readDocument(id);}
  @Override public List<StoredAnalysis> recent(int limit){return queryRecentDocuments(Math.max(1,Math.min(limit,100)));}
+ @Override public List<StoredAnalysis> history(String repository,String system,int limit){return queryHistoryDocuments(repository,system,Math.max(1,Math.min(limit,200)));}
 }
