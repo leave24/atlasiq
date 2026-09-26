@@ -1,6 +1,3 @@
 package com.atlasiq.enterprise;
 import jakarta.enterprise.context.ApplicationScoped;import java.util.*;
-@ApplicationScoped public class RbacService {
- private static final Map<String,Set<String>> PERMISSIONS=Map.of("viewer",Set.of("read"),"analyst",Set.of("read","scan","export"),"admin",Set.of("read","scan","export","manage","audit","billing"),"owner",Set.of("*"));
- public boolean allowed(Set<String> roles,String permission){return roles.stream().anyMatch(r->PERMISSIONS.getOrDefault(r,Set.of()).contains("*")||PERMISSIONS.getOrDefault(r,Set.of()).contains(permission));}
-}
+@ApplicationScoped public class RbacService {private static final Map<String,Set<String>> P=Map.of("viewer",Set.of("architecture:read"),"analyst",Set.of("architecture:read","scan:run","export:read"),"security",Set.of("architecture:read","security:read","security:manage"),"admin",Set.of("architecture:read","scan:run","export:read","workspace:manage","members:manage","audit:read","webhook:manage"),"owner",Set.of("*"));public boolean allowed(Set<String> roles,String permission){return roles.stream().anyMatch(r->P.getOrDefault(r,Set.of()).contains("*")||P.getOrDefault(r,Set.of()).contains(permission));}}
