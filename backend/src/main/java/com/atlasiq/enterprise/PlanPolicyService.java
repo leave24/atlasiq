@@ -1,0 +1,3 @@
+package com.atlasiq.enterprise;
+import jakarta.enterprise.context.ApplicationScoped;import java.util.*;
+@ApplicationScoped public class PlanPolicyService {private static final Map<String,Plan> PLANS=Map.of("free",new Plan(Set.of("scan","catalog"),50,1),"team",new Plan(Set.of("scan","catalog","security","pr-intelligence","governance"),2000,25),"enterprise",new Plan(Set.of("*"),100000,10000));public boolean feature(String plan,String f){var p=PLANS.getOrDefault(plan,PLANS.get("free"));return p.features().contains("*")||p.features().contains(f);}public Plan plan(String p){return PLANS.getOrDefault(p,PLANS.get("free"));}public record Plan(Set<String> features,long monthlyScans,int seats){}}
