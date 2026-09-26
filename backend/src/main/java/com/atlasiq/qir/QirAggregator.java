@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 @ApplicationScoped
 public class QirAggregator {
@@ -19,6 +21,7 @@ public class QirAggregator {
         var nodes = new ArrayList<QirNode>();
         var edges = new ArrayList<QirEdge>();
         var findings = new ArrayList<Finding>();
+        Set<String> repositoryIds = new HashSet<>();
 
         nodes.add(new QirNode(systemId, "system", systemName, "atlasiq",
                 Map.of("repositoryCount", repositories.size())));
@@ -28,6 +31,9 @@ public class QirAggregator {
                 throw new IllegalArgumentException("repository QIR must include scope.repositoryId");
             }
             String repositoryId = model.scope().repositoryId();
+            if (!repositoryIds.add(repositoryId)) {
+                throw new IllegalArgumentException("duplicate repository identity: " + repositoryId);
+            }
             Map<String, String> ids = new HashMap<>();
             for (QirNode node : model.nodes()) {
                 String globalId = node.id().equals(repositoryId)
