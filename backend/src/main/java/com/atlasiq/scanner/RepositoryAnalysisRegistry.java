@@ -1,0 +1,3 @@
+package com.atlasiq.scanner;
+import jakarta.enterprise.context.ApplicationScoped;import jakarta.enterprise.inject.Instance;import java.nio.file.Path;import java.util.*;
+@ApplicationScoped public class RepositoryAnalysisRegistry {private final List<RepositoryAnalysisContributor> contributors;public RepositoryAnalysisRegistry(Instance<RepositoryAnalysisContributor> contributors){this.contributors=contributors.stream().sorted(Comparator.comparing(RepositoryAnalysisContributor::id)).toList();}public List<RepositoryAnalysisContributor.Contribution> analyze(Path path){return contributors.stream().map(c->c.analyze(path)).toList();}public List<String> contributorIds(){return contributors.stream().map(RepositoryAnalysisContributor::id).toList();}}
