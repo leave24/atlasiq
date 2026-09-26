@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DependencyHintParserTest {
 
+    // Security regressions here intentionally exercise untrusted repository inputs.
+
     @TempDir
     Path repository;
 
@@ -23,8 +25,68 @@ class DependencyHintParserTest {
 
         assertEquals(1, nodes.size());
         assertEquals("dependency-reference", nodes.getFirst().type());
-        assertEquals("https://payments.internal/api", nodes.getFirst().metadata().get("targetUrl"));
+        assertEquals("https://payments.internal", nodes.getFirst().metadata().get("targetUrl"));
         assertEquals("application.properties", nodes.getFirst().metadata().get("evidenceFile"));
+    }
+
+    @Test
+    void stripsPathsQueriesAndCredentialsFromEvidence() throws Exception {
+        Files.writeString(repository.resolve(".env"),
+                "API=https://user:pass@api.example:8443/private?token=secret");
+
+        var nodes = new DependencyHintParser().parse(repository);
+
+        assertEquals(1, nodes.size());
+        assertEquals("https://api.example:8443", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
+    void preservesInternalHostsWithUnderscores() throws Exception {
+        Files.writeString(repository.resolve("application.properties"),
+                "service.url=http://my_service:8080/api");
+
+        var nodes = new DependencyHintParser().parse(repository);
+
+        assertEquals(1, nodes.size());
+        assertEquals("http://my_service:8080", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
+    void ignoresDirectorySymlinkCycles() throws Exception {
+        Path nested = Files.createDirectories(repository.resolve("nested"));
+        try {
+            Files.createSymbolicLink(nested.resolve("loop"), repository);
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException e) {
+            return;
+        }
+        Files.writeString(repository.resolve("application.properties"), "api=https://safe.internal/api");
+
+        var nodes = new DependencyHintParser().parse(repository);
+
+        assertEquals(1, nodes.size());
+        assertEquals("https://safe.internal", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
+    void ignoresGeneratedDirectories() throws Exception {
+        Path generated = Files.createDirectories(repository.resolve("target/classes"));
+        Files.writeString(generated.resolve("application.properties"), "api=https://generated.internal/api");
+
+        assertTrue(new DependencyHintParser().parse(repository).isEmpty());
+    }
+
+    @Test
+    void ignoresSymlinkedConfigurationFiles() throws Exception {
+        Path outside = Files.createTempFile("atlasiq-secret", ".env");
+        Files.writeString(outside, "api=https://secret.internal?token=hidden");
+        Path link = repository.resolve(".env");
+        try {
+            Files.createSymbolicLink(link, outside);
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException e) {
+            return;
+        }
+
+        assertTrue(new DependencyHintParser().parse(repository).isEmpty());
     }
 
     @Test
