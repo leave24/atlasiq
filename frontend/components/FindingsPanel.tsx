@@ -1,0 +1,3 @@
+"use client";
+import {Finding,severityRank} from "../lib/qir";
+export function FindingsPanel({findings}:{findings:Finding[]}){const sorted=[...findings].sort((a,b)=>severityRank(b.severity)-severityRank(a.severity));return <section className="panel"><div className="panelHead"><div><span className="eyebrow">DEVSECOPS</span><h2>Security findings</h2></div><span className="countBadge">{findings.length}</span></div>{sorted.length===0?<div className="empty">No findings detected.</div>:<div className="findingList">{sorted.map(f=><article className="finding" key={f.id}><span className={"severity "+f.severity.toLowerCase()}>{f.severity}</span><div><strong>{f.title}</strong><p>{f.resourceId}</p><small>{f.recommendation}</small></div></article>)}</div>}</section>}
