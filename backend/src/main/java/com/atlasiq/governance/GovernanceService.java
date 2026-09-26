@@ -1,0 +1,3 @@
+package com.atlasiq.governance;
+import com.atlasiq.persistence.*;import jakarta.enterprise.context.ApplicationScoped;
+@ApplicationScoped public class GovernanceService {private final AnalysisStore store;private final PolicyPackLoader loader;private final ArchitectureFitnessService fitness;public GovernanceService(AnalysisStore s,PolicyPackLoader l,ArchitectureFitnessService f){store=s;loader=l;fitness=f;}public ArchitectureFitnessService.Fitness evaluate(String analysisId,String yaml){var m=store.find(analysisId).orElseThrow().model();return fitness.evaluate(m,loader.parse(yaml));}}

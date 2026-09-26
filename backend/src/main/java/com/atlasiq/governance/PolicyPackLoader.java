@@ -1,0 +1,3 @@
+package com.atlasiq.governance;
+import com.fasterxml.jackson.databind.ObjectMapper;import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;import jakarta.enterprise.context.ApplicationScoped;import java.io.*;
+@ApplicationScoped public class PolicyPackLoader {private final ObjectMapper yaml=new ObjectMapper(new YAMLFactory());public PolicyPack parse(String source){try{return yaml.readValue(source,PolicyPack.class);}catch(IOException e){throw new IllegalArgumentException("invalid AtlasIQ architecture policy pack",e);}}}
