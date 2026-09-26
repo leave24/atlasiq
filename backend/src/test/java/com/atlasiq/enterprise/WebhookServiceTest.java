@@ -1,0 +1,2 @@
+package com.atlasiq.enterprise;import org.junit.jupiter.api.Test;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+class WebhookServiceTest{@Test void requiresHttps(){var s=new WebhookService();assertThrows(IllegalArgumentException.class,()->s.register("o","w","http://localhost/hook",Set.of("analysis.completed")));var h=s.register("o","w","https://example.test/hook",Set.of("analysis.completed"));assertEquals("o",h.organizationId());}}
