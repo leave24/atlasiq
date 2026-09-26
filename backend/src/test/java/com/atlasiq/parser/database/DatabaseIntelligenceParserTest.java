@@ -1,0 +1,3 @@
+package com.atlasiq.parser.database;
+import org.junit.jupiter.api.*;import org.junit.jupiter.api.io.TempDir;import java.nio.file.*;import static org.junit.jupiter.api.Assertions.*;
+class DatabaseIntelligenceParserTest{@TempDir Path root;@Test void discoversDatabaseAndSqlObjects()throws Exception{Files.writeString(root.resolve("app.properties"),"url=jdbc:postgresql://db:5432/x\nquery=select * from orders");var r=new DatabaseIntelligenceParser().parse(root);assertTrue(r.nodes().stream().anyMatch(n->"database".equals(n.type())));assertTrue(r.nodes().stream().anyMatch(n->"database-object".equals(n.type())&&"orders".equals(n.name())));}}

@@ -8,6 +8,8 @@ import com.atlasiq.parser.terraform.TerraformParser;
 import com.atlasiq.parser.api.ApiDiscoveryParser;
 import com.atlasiq.parser.api.HttpClientDiscoveryParser;
 import com.atlasiq.parser.platform.PlatformDiscoveryParser;
+import com.atlasiq.parser.database.DatabaseIntelligenceParser;
+import com.atlasiq.parser.supplychain.SupplyChainParser;
 import com.atlasiq.qir.ApiConsumerCorrelator;
 import com.atlasiq.qir.Finding;
 import com.atlasiq.qir.QirEdge;
@@ -36,6 +38,8 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
     private final HttpClientDiscoveryParser httpClientDiscoveryParser;
     private final ApiConsumerCorrelator apiConsumerCorrelator;
     private final PlatformDiscoveryParser platformDiscoveryParser;
+    private final DatabaseIntelligenceParser databaseIntelligenceParser;
+    private final SupplyChainParser supplyChainParser;
     private final GitHubRepositoryAcquirer repositoryAcquirer;
     private final Path workspaceRoot;
 
@@ -49,6 +53,8 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
             HttpClientDiscoveryParser httpClientDiscoveryParser,
             ApiConsumerCorrelator apiConsumerCorrelator,
             PlatformDiscoveryParser platformDiscoveryParser,
+            DatabaseIntelligenceParser databaseIntelligenceParser,
+            SupplyChainParser supplyChainParser,
             GitHubRepositoryAcquirer repositoryAcquirer,
             @ConfigProperty(name = "atlasiq.workspace.root", defaultValue = "/workspace") String workspaceRoot) {
         this.kubernetesParser = kubernetesParser;
@@ -60,6 +66,8 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         this.httpClientDiscoveryParser = httpClientDiscoveryParser;
         this.apiConsumerCorrelator = apiConsumerCorrelator;
         this.platformDiscoveryParser = platformDiscoveryParser;
+        this.databaseIntelligenceParser = databaseIntelligenceParser;
+        this.supplyChainParser = supplyChainParser;
         this.repositoryAcquirer = repositoryAcquirer;
         this.workspaceRoot = Path.of(workspaceRoot).toAbsolutePath().normalize();
     }
@@ -93,6 +101,8 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         var apiEndpoints = apiDiscoveryParser.parse(repositoryPath);
         var httpClients = httpClientDiscoveryParser.parse(repositoryPath);
         var platform = platformDiscoveryParser.parse(repositoryPath);
+        var databases = databaseIntelligenceParser.parse(repositoryPath);
+        var packages = supplyChainParser.parse(repositoryPath);
 
         var nodes = new ArrayList<QirNode>();
         var edges = new ArrayList<QirEdge>();
@@ -115,10 +125,13 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         nodes.addAll(apiEndpoints);
         nodes.addAll(httpClients);
         nodes.addAll(platform);
+        nodes.addAll(databases.nodes());
+        nodes.addAll(packages);
         edges.addAll(kubernetes.edges());
         edges.addAll(docker.edges());
         edges.addAll(githubActions.edges());
         edges.addAll(terraform.edges());
+        edges.addAll(databases.edges());
         findings.addAll(kubernetes.findings());
         findings.addAll(docker.findings());
         findings.addAll(githubActions.findings());
