@@ -4,8 +4,6 @@ import com.atlasiq.qir.QirNode;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.io.IOException;
-import java.net.URI;
-import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -19,7 +17,9 @@ import java.util.stream.Stream;
 @ApplicationScoped
 public class DependencyHintParser {
 
-    private static final Pattern URL = Pattern.compile("https?://(?:[^\\s/@:\"']+(?::[^\\s/@\"']*)?@)?[A-Za-z0-9._-]+(?::\\d+)?(?:/[^\\s\"']*)?");
+    private static final Pattern URL = Pattern.compile("https?://(?![^/\\s\"'#]*@)(?:\\[[0-9A-Fa-f:.]+\\]|[A-Za-z0-9._-]+)(?::\\d+)?(?:/[^\\s\"']*)?(?:\\?[^\\s\"'#]*)?(?:#[^\\s\"']*)?");
+    private static final Pattern HOST = Pattern.compile("[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?(?:\\.[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?)*");
+    private static final Pattern IPV6 = Pattern.compile("\\[[0-9A-Fa-f:.]+\\]");
     private static final List<String> CONFIG_NAMES = List.of(
             "application.properties", "application.yml", "application.yaml",
             ".env", ".env.example", "docker-compose.yml", "docker-compose.yaml");
@@ -84,11 +84,35 @@ public class DependencyHintParser {
         }
 
         String authority = value.substring(authorityStart, authorityEnd);
-        int at = authority.lastIndexOf('@');
-        if (at >= 0) authority = authority.substring(at + 1);
         if (authority.isBlank() || authority.contains("@")) return null;
 
-        return scheme + "://" + authority;
+        if (authority.startsWith("[")) {
+            int bracketEnd = authority.indexOf(']');
+            if (bracketEnd <= 0) return null;
+
+            String host = authority.substring(0, bracketEnd + 1);
+            String remainder = authority.substring(bracketEnd + 1);
+            if (!IPV6.matcher(host).matches()) return null;
+            if (remainder.isEmpty()) return scheme + "://" + host;
+            if (!remainder.startsWith(":")) return null;
+
+            String port = remainder.substring(1);
+            if (port.isBlank() || !port.chars().allMatch(Character::isDigit)) return null;
+            return scheme + "://" + host + ":" + port;
+        }
+
+        String host = authority;
+        String port = "";
+        int colon = authority.lastIndexOf(':');
+        if (colon >= 0) {
+            host = authority.substring(0, colon);
+            port = authority.substring(colon + 1);
+            if (port.isBlank() || !port.chars().allMatch(Character::isDigit)) return null;
+            port = ":" + port;
+        }
+        if (!HOST.matcher(host).matches()) return null;
+
+        return scheme + "://" + host + port;
     }
 
     private boolean excluded(Path root, Path path) {
