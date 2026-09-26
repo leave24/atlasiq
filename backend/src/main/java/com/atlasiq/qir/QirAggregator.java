@@ -12,6 +12,12 @@ import java.util.Set;
 @ApplicationScoped
 public class QirAggregator {
 
+    private final CrossRepositoryDependencyResolver dependencyResolver;
+
+    public QirAggregator(CrossRepositoryDependencyResolver dependencyResolver) {
+        this.dependencyResolver = dependencyResolver;
+    }
+
     public QirModel aggregate(String system, List<QirModel> repositories) {
         if (system == null || system.isBlank()) throw new IllegalArgumentException("system is required");
         if (repositories == null || repositories.isEmpty()) throw new IllegalArgumentException("at least one repository QIR is required");
@@ -69,6 +75,8 @@ public class QirAggregator {
                         finding.recommendation()));
             }
         }
+
+        edges.addAll(dependencyResolver.resolve(nodes));
 
         return new QirModel(systemName, "multi-repo", List.copyOf(nodes), List.copyOf(edges),
                 List.copyOf(findings), new QirScope(systemName, systemId));
