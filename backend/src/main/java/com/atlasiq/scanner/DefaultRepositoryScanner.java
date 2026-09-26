@@ -1,6 +1,7 @@
 package com.atlasiq.scanner;
 
 import com.atlasiq.parser.docker.DockerfileParser;
+import com.atlasiq.parser.dependencies.DependencyHintParser;
 import com.atlasiq.parser.githubactions.GitHubActionsParser;
 import com.atlasiq.parser.kubernetes.KubernetesParser;
 import com.atlasiq.parser.terraform.TerraformParser;
@@ -26,6 +27,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
     private final DockerfileParser dockerfileParser;
     private final GitHubActionsParser githubActionsParser;
     private final TerraformParser terraformParser;
+    private final DependencyHintParser dependencyHintParser;
     private final GitHubRepositoryAcquirer repositoryAcquirer;
     private final Path workspaceRoot;
 
@@ -34,12 +36,14 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
             DockerfileParser dockerfileParser,
             GitHubActionsParser githubActionsParser,
             TerraformParser terraformParser,
+            DependencyHintParser dependencyHintParser,
             GitHubRepositoryAcquirer repositoryAcquirer,
             @ConfigProperty(name = "atlasiq.workspace.root", defaultValue = "/workspace") String workspaceRoot) {
         this.kubernetesParser = kubernetesParser;
         this.dockerfileParser = dockerfileParser;
         this.githubActionsParser = githubActionsParser;
         this.terraformParser = terraformParser;
+        this.dependencyHintParser = dependencyHintParser;
         this.repositoryAcquirer = repositoryAcquirer;
         this.workspaceRoot = Path.of(workspaceRoot).toAbsolutePath().normalize();
     }
@@ -69,6 +73,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         var docker = dockerfileParser.parse(repositoryPath);
         var githubActions = githubActionsParser.parse(repositoryPath);
         var terraform = terraformParser.parse(repositoryPath);
+        var dependencyHints = dependencyHintParser.parse(repositoryPath);
 
         var nodes = new ArrayList<QirNode>();
         var edges = new ArrayList<QirEdge>();
@@ -87,6 +92,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         nodes.addAll(docker.nodes());
         nodes.addAll(githubActions.nodes());
         nodes.addAll(terraform.nodes());
+        nodes.addAll(dependencyHints);
         edges.addAll(kubernetes.edges());
         edges.addAll(docker.edges());
         edges.addAll(githubActions.edges());
