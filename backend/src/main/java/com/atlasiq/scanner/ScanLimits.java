@@ -1,0 +1,3 @@
+package com.atlasiq.scanner;
+import jakarta.enterprise.context.ApplicationScoped;import org.eclipse.microprofile.config.inject.ConfigProperty;
+@ApplicationScoped public class ScanLimits {public final int maxFiles;public final long maxFileBytes;public final int timeoutSeconds;public ScanLimits(@ConfigProperty(name="atlasiq.scan.max-files",defaultValue="25000")int maxFiles,@ConfigProperty(name="atlasiq.scan.max-file-bytes",defaultValue="2000000")long maxFileBytes,@ConfigProperty(name="atlasiq.scan.timeout-seconds",defaultValue="120")int timeoutSeconds){this.maxFiles=maxFiles;this.maxFileBytes=maxFileBytes;this.timeoutSeconds=timeoutSeconds;}}
