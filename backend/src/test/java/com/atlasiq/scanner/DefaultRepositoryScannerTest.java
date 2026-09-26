@@ -7,6 +7,7 @@ import com.atlasiq.parser.kubernetes.KubernetesParser;
 import com.atlasiq.parser.terraform.TerraformParser;
 import com.atlasiq.parser.api.ApiDiscoveryParser;
 import com.atlasiq.parser.api.HttpClientDiscoveryParser;
+import com.atlasiq.parser.platform.PlatformDiscoveryParser;
 import com.atlasiq.parser.database.DatabaseIntelligenceParser;
 import com.atlasiq.parser.supplychain.SupplyChainParser;
 import com.atlasiq.qir.ApiConsumerCorrelator;
@@ -135,6 +136,7 @@ class DefaultRepositoryScannerTest {
                 new ApiDiscoveryParser(),
                 new HttpClientDiscoveryParser(),
                 new ApiConsumerCorrelator(),
+                new PlatformDiscoveryParser(),
                 new DatabaseIntelligenceParser(),
                 new SupplyChainParser(),
                 new GitHubRepositoryAcquirer(workspace.toString()),

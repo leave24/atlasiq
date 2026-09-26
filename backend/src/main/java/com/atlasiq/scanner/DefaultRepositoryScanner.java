@@ -7,6 +7,7 @@ import com.atlasiq.parser.kubernetes.KubernetesParser;
 import com.atlasiq.parser.terraform.TerraformParser;
 import com.atlasiq.parser.api.ApiDiscoveryParser;
 import com.atlasiq.parser.api.HttpClientDiscoveryParser;
+import com.atlasiq.parser.platform.PlatformDiscoveryParser;
 import com.atlasiq.parser.database.DatabaseIntelligenceParser;
 import com.atlasiq.parser.supplychain.SupplyChainParser;
 import com.atlasiq.qir.ApiConsumerCorrelator;
@@ -36,6 +37,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
     private final ApiDiscoveryParser apiDiscoveryParser;
     private final HttpClientDiscoveryParser httpClientDiscoveryParser;
     private final ApiConsumerCorrelator apiConsumerCorrelator;
+    private final PlatformDiscoveryParser platformDiscoveryParser;
     private final DatabaseIntelligenceParser databaseIntelligenceParser;
     private final SupplyChainParser supplyChainParser;
     private final GitHubRepositoryAcquirer repositoryAcquirer;
@@ -50,6 +52,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
             ApiDiscoveryParser apiDiscoveryParser,
             HttpClientDiscoveryParser httpClientDiscoveryParser,
             ApiConsumerCorrelator apiConsumerCorrelator,
+            PlatformDiscoveryParser platformDiscoveryParser,
             DatabaseIntelligenceParser databaseIntelligenceParser,
             SupplyChainParser supplyChainParser,
             GitHubRepositoryAcquirer repositoryAcquirer,
@@ -62,6 +65,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         this.apiDiscoveryParser = apiDiscoveryParser;
         this.httpClientDiscoveryParser = httpClientDiscoveryParser;
         this.apiConsumerCorrelator = apiConsumerCorrelator;
+        this.platformDiscoveryParser = platformDiscoveryParser;
         this.databaseIntelligenceParser = databaseIntelligenceParser;
         this.supplyChainParser = supplyChainParser;
         this.repositoryAcquirer = repositoryAcquirer;
@@ -96,6 +100,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         var dependencyHints = dependencyHintParser.parse(repositoryPath);
         var apiEndpoints = apiDiscoveryParser.parse(repositoryPath);
         var httpClients = httpClientDiscoveryParser.parse(repositoryPath);
+        var platform = platformDiscoveryParser.parse(repositoryPath);
         var databases = databaseIntelligenceParser.parse(repositoryPath);
         var packages = supplyChainParser.parse(repositoryPath);
 
@@ -119,6 +124,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         nodes.addAll(dependencyHints);
         nodes.addAll(apiEndpoints);
         nodes.addAll(httpClients);
+        nodes.addAll(platform);
         nodes.addAll(databases.nodes());
         nodes.addAll(packages);
         edges.addAll(kubernetes.edges());
