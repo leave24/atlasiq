@@ -7,6 +7,15 @@ public record QirModel(
         String ref,
         List<QirNode> nodes,
         List<QirEdge> edges,
-        List<Finding> findings) {
-}
+        List<Finding> findings,
+        QirScope scope) {
 
+    public QirModel(
+            String repository,
+            String ref,
+            List<QirNode> nodes,
+            List<QirEdge> edges,
+            List<Finding> findings) {
+        this(repository, ref, nodes, edges, findings, null);
+    }
+}

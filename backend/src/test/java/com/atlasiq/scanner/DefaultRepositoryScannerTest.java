@@ -80,12 +80,37 @@ class DefaultRepositoryScannerTest {
         var qir = scanner.scan(new ScanRequest("demo", "local"));
 
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("repository")));
+        assertTrue(qir.nodes().stream().anyMatch(node -> node.id().equals(qir.scope().repositoryId())));
+        assertTrue(qir.scope().repositoryId().startsWith("repo:local:"));
+        assertTrue(qir.scope().system().equals("default"));
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("kubernetes-deployment")));
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("container-image")));
         assertTrue(qir.nodes().stream().anyMatch(node -> node.type().equals("ci-workflow")));
         assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("selects")));
         assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("uses")));
         assertTrue(qir.edges().stream().anyMatch(edge -> edge.relationship().equals("contains")));
+    }
+
+    @Test
+    void preservesExplicitSystemScope() throws Exception {
+        Files.createDirectories(workspace.resolve("payments"));
+
+        var qir = scanner().scan(new ScanRequest("payments", "local", "commerce"));
+
+        assertTrue(qir.scope().system().equals("commerce"));
+        assertTrue(qir.scope().repositoryId().startsWith("repo:local:"));
+        assertTrue(qir.edges().stream().noneMatch(edge -> edge.from().equals("repository")));
+    }
+
+    @Test
+    void keepsDistinctLocalRepositoryPathsCollisionFree() throws Exception {
+        Files.createDirectories(workspace.resolve("payments@v1"));
+        Files.createDirectories(workspace.resolve("payments-v1"));
+
+        var first = scanner().scan(new ScanRequest("payments@v1", "local"));
+        var second = scanner().scan(new ScanRequest("payments-v1", "local"));
+
+        assertTrue(!first.scope().repositoryId().equals(second.scope().repositoryId()));
     }
 
     @Test
