@@ -84,3 +84,8 @@ QIR
 ```
 
 Current platform capabilities include deterministic Kubernetes/Docker/Terraform/GitHub Actions parsing, multi-repository QIR, dependency/API/database/supply-chain discovery, persisted architecture history, diff/PR impact, blast radius, drift, multi-cloud and contract discovery, service catalog/search, Time Machine, exports, grounded Copilot foundations, and enterprise identity/tenancy boundaries.\n\nCurrent engineering priority: **Core Hardening** — QIR v2 identity/provenance, parser SPI, Flyway migrations, end-to-end quality gates, observability, bounded/asynchronous scans, and frontend modularization. See `docs/CORE_HARDENING.md`.
+
+
+## Architecture Digital Twin
+
+AtlasIQ now includes a P4 evidence-first digital-twin layer for counterfactual architecture simulation, architecture truth/confidence, confidence decay, architecture memory, incident black-box timelines, hotspot detection, change budgets, ADR suggestions and AI-agent preflight guards. See `docs/ARCHITECTURE_DIGITAL_TWIN.md`.
