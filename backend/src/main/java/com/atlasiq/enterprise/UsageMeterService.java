@@ -1,0 +1,3 @@
+package com.atlasiq.enterprise;
+import jakarta.enterprise.context.ApplicationScoped;import java.sql.Timestamp;import java.time.Instant;import java.util.UUID;
+@ApplicationScoped public class UsageMeterService {private final EnterpriseStore store;public UsageMeterService(EnterpriseStore s){store=s;}public void record(String org,String ws,String metric,long quantity,String idempotencyKey){if(quantity<0)throw new IllegalArgumentException("quantity must be non-negative");store.exec("INSERT INTO atlasiq_usage(id,organization_id,workspace_id,metric,quantity,at,idempotency_key) VALUES(?,?,?,?,?,?,?)",UUID.randomUUID().toString(),org,ws,metric,quantity,Timestamp.from(Instant.now()),idempotencyKey);}}
