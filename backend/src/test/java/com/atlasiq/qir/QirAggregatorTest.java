@@ -7,6 +7,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QirAggregatorTest {
@@ -64,6 +65,17 @@ class QirAggregatorTest {
                 .toList();
         assertEquals(2, componentIds.size());
         assertNotEquals(componentIds.get(0), componentIds.get(1));
+    }
+
+    @Test
+    void rejectsDuplicateRepositoryIdentity() {
+        QirModel first = repository("repo:github:acme/api", "api-main", "service");
+        QirModel second = repository("repo:github:acme/api", "api-other-ref", "service");
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> aggregator.aggregate("commerce", List.of(first, second)));
+
+        assertTrue(error.getMessage().contains("duplicate repository identity"));
     }
 
     private QirModel repository(String repositoryId, String name, String componentId) {
