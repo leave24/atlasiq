@@ -30,14 +30,22 @@ class DependencyHintParserTest {
     }
 
     @Test
-    void stripsPathsQueriesAndCredentialsFromEvidence() throws Exception {
+    void stripsPathsQueriesAndFragmentsFromEvidence() throws Exception {
         Files.writeString(repository.resolve(".env"),
-                "API=https://user:pass@api.example:8443/private?token=secret");
+                "API=https://api.example:8443/private?token=secret#docs");
 
         var nodes = new DependencyHintParser().parse(repository);
 
         assertEquals(1, nodes.size());
         assertEquals("https://api.example:8443", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
+    void ignoresUrlsWithCredentials() throws Exception {
+        Files.writeString(repository.resolve(".env"),
+                "API=******api.example:8443/private?token=secret");
+
+        assertTrue(new DependencyHintParser().parse(repository).isEmpty());
     }
 
     @Test
@@ -49,6 +57,36 @@ class DependencyHintParserTest {
 
         assertEquals(1, nodes.size());
         assertEquals("http://my_service:8080", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
+    void preservesBracketedIpv6Hosts() throws Exception {
+        Files.writeString(repository.resolve("application.properties"),
+                "service.url=https://[2001:db8::1]:8443/api");
+
+        var nodes = new DependencyHintParser().parse(repository);
+
+        assertEquals(1, nodes.size());
+        assertEquals("https://[2001:db8::1]:8443", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
+    void discoversUrlsWithQueryOrFragmentWithoutPath() throws Exception {
+        Files.writeString(repository.resolve(".env"),
+                "QUERY=https://service.internal?token=secret\nFRAGMENT=https://service.internal#docs\n");
+
+        var nodes = new DependencyHintParser().parse(repository);
+
+        assertEquals(2, nodes.size());
+        assertTrue(nodes.stream().allMatch(node -> "https://service.internal".equals(node.metadata().get("targetUrl"))));
+    }
+
+    @Test
+    void ignoresMalformedAuthorities() throws Exception {
+        Files.writeString(repository.resolve(".env"),
+                "BROKEN_ONE=https://-bad-host/api\nBROKEN_TWO=https://.bad-host/api\nBROKEN_THREE=https://bad-.host/api\nBROKEN_FOUR=https://foo.-bar/api\n");
+
+        assertTrue(new DependencyHintParser().parse(repository).isEmpty());
     }
 
     @Test
