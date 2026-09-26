@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DependencyHintParserTest {
 
+    // Security regressions here intentionally exercise untrusted repository inputs.
+
     @TempDir
     Path repository;
 
