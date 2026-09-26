@@ -1,0 +1,2 @@
+package com.atlasiq.enterprise;import org.junit.jupiter.api.Test;import static org.junit.jupiter.api.Assertions.*;
+class OrganizationServiceTest{@Test void isolatesWorkspacesByOrganization(){var s=new OrganizationService();var a=s.createOrg("A");var b=s.createOrg("B");s.createWorkspace(a.id(),"prod");s.createWorkspace(b.id(),"prod");assertEquals(1,s.workspaces(a.id()).size());assertEquals(a.id(),s.workspaces(a.id()).getFirst().organizationId());}}
