@@ -15,7 +15,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 
 @ApplicationScoped
 public class DefaultRepositoryScanner implements RepositoryScanner {
@@ -72,7 +74,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         var edges = new ArrayList<QirEdge>();
         var findings = new ArrayList<Finding>();
 
-        String repositoryId = repositoryId(repository);
+        String repositoryId = repositoryId(repository, repositoryPath, source);
         String system = requestedSystem == null || requestedSystem.isBlank() ? "default" : requestedSystem.trim();
 
         nodes.add(new QirNode(
@@ -105,10 +107,19 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         return new QirModel(repository, ref, nodes, edges, findings, new QirScope(system, repositoryId));
     }
 
-    private String repositoryId(String repository) {
-        String normalized = repository.trim().replaceFirst("(?i)^https://github\\.com/", "").replaceFirst("\\.git$", "");
-        normalized = normalized.replaceAll("[^A-Za-z0-9._/-]+", "-").replaceAll("^/+|/+$", "");
-        return "repo:" + normalized.toLowerCase();
+    private String repositoryId(String repository, Path repositoryPath, String source) {
+        if ("local-workspace".equals(source)) {
+            String canonicalPath = repositoryPath.toAbsolutePath().normalize().toString();
+            String encoded = Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(canonicalPath.getBytes(StandardCharsets.UTF_8));
+            return "repo:local:" + encoded;
+        }
+
+        String normalized = repository.trim()
+                .replaceFirst("(?i)^https://github\\.com/", "")
+                .replaceFirst("\\.git$", "")
+                .replaceAll("^/+|/+$", "");
+        return "repo:github:" + normalized.toLowerCase();
     }
 
     private Path resolveLocalRepository(String repository) {
