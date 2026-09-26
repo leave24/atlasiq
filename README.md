@@ -83,4 +83,4 @@ QIR
    +--> Architecture Graph
 ```
 
-Next milestone: implement the first real Kubernetes parser and dependency resolver so AtlasIQ can analyze its own manifests and reconstruct its own topology.
+Current platform capabilities include deterministic Kubernetes/Docker/Terraform/GitHub Actions parsing, multi-repository QIR, dependency/API/database/supply-chain discovery, persisted architecture history, diff/PR impact, blast radius, drift, multi-cloud and contract discovery, service catalog/search, Time Machine, exports, grounded Copilot foundations, and enterprise identity/tenancy boundaries.\n\nCurrent engineering priority: **Core Hardening** — QIR v2 identity/provenance, parser SPI, Flyway migrations, end-to-end quality gates, observability, bounded/asynchronous scans, and frontend modularization. See `docs/CORE_HARDENING.md`.
