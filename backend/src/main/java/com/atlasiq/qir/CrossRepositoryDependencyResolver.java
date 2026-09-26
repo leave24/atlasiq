@@ -62,7 +62,10 @@ public class CrossRepositoryDependencyResolver {
 
     private void index(Map<String, List<QirNode>> targets, String key, QirNode node) {
         if (key == null || key.isBlank()) return;
-        targets.computeIfAbsent(normalize(key), ignored -> new ArrayList<>()).add(node);
+        List<QirNode> bucket = targets.computeIfAbsent(normalize(key), ignored -> new ArrayList<>());
+        if (bucket.stream().noneMatch(existing -> existing.id().equals(node.id()))) {
+            bucket.add(node);
+        }
     }
 
     private String repositoryId(QirNode node) {
