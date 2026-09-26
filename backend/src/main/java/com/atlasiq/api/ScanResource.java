@@ -32,7 +32,10 @@ public class ScanResource {
     @POST
     @Path("/multi")
     public QirModel scanMultiple(MultiScanRequest request) {
-        if (request == null || request.repositories() == null || request.repositories().isEmpty()) {
+        if (request == null || request.system() == null || request.system().isBlank()) {
+            throw new IllegalArgumentException("system is required");
+        }
+        if (request.repositories() == null || request.repositories().isEmpty()) {
             throw new IllegalArgumentException("at least one repository is required");
         }
         var models = request.repositories().stream()
