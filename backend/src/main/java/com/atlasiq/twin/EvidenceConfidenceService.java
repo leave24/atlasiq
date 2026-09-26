@@ -1,0 +1,9 @@
+package com.atlasiq.twin;
+import com.atlasiq.qir.*;import jakarta.enterprise.context.ApplicationScoped;import java.time.*;import java.util.*;
+@ApplicationScoped public class EvidenceConfidenceService {
+ public Assessment assess(QirModel m){List<ComponentTruth> c=m.nodes().stream().filter(n->!"repository".equals(n.type())).map(this::assess).toList();int score=c.isEmpty()?0:(int)Math.round(c.stream().mapToInt(ComponentTruth::score).average().orElse(0));return new Assessment(score,status(score),c);}
+ public ComponentTruth assess(QirNode n){Map<String,Object>x=n.metadata()==null?Map.of():n.metadata();Set<String>sources=new LinkedHashSet<>();if(x.containsKey("evidenceFile")||x.containsKey("evidence"))sources.add("static");if(x.containsKey("runtime")||x.containsKey("observedAt"))sources.add("runtime");if(x.containsKey("contract")||n.type().contains("api"))sources.add("contract");if(x.containsKey("owner")||x.containsKey("team"))sources.add("ownership");if(x.containsKey("adr"))sources.add("adr");int base=Math.min(100,25+sources.size()*15);long age=ageDays(x);int decay=(int)Math.min(45,age/30*5);int score=Math.max(5,base-decay);String state=sources.size()>=3?"VERIFIED":sources.size()==2?"OBSERVED":sources.size()==1?"DECLARED":"INFERRED";if(age>180)state="STALE";return new ComponentTruth(n.id(),score,state,age,List.copyOf(sources));}
+ private long ageDays(Map<String,Object>x){for(String k:List.of("observedAt","scannedAt","timestamp"))try{Object v=x.get(k);if(v!=null)return Math.max(0,Duration.between(Instant.parse(String.valueOf(v)),Instant.now()).toDays());}catch(Exception ignored){}return 0;}
+ private String status(int s){return s>=80?"HIGH_CONFIDENCE":s>=55?"PARTIAL":"LOW_CONFIDENCE";}
+ public record Assessment(int truthScore,String status,List<ComponentTruth>components){} public record ComponentTruth(String nodeId,int score,String state,long evidenceAgeDays,List<String>evidenceSources){}
+}
