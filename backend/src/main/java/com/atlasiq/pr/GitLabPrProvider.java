@@ -1,0 +1,3 @@
+package com.atlasiq.pr;
+import jakarta.enterprise.context.ApplicationScoped;
+@ApplicationScoped public class GitLabPrProvider implements PrProvider {public String id(){return "gitlab";}public PullRequestRef resolve(PrTarget t){throw new UnsupportedOperationException("GitLab adapter requires configured GitLab API base and project identity");}public void publishCheck(PrTarget t,PrIntelligenceReport r){throw new UnsupportedOperationException("GitLab commit status publishing requires configured GitLab API");}public void publishComment(PrTarget t,String m){throw new UnsupportedOperationException("GitLab MR note publishing requires configured GitLab API");}}
