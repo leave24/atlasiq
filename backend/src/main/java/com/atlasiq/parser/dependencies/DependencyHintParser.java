@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 @ApplicationScoped
 public class DependencyHintParser {
 
-    private static final Pattern URL = Pattern.compile("https?://[A-Za-z0-9._-]+(?::\\d+)?(?:/[^\\s\"']*)?");
+    private static final Pattern URL = Pattern.compile("https?://(?:[^\\s/@:\"']+(?::[^\\s/@\"']*)?@)?[A-Za-z0-9._-]+(?::\\d+)?(?:/[^\\s\"']*)?");
     private static final List<String> CONFIG_NAMES = List.of(
             "application.properties", "application.yml", "application.yaml",
             ".env", ".env.example", "docker-compose.yml", "docker-compose.yaml");
