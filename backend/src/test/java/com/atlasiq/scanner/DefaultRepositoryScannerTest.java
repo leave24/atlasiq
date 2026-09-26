@@ -7,6 +7,8 @@ import com.atlasiq.parser.kubernetes.KubernetesParser;
 import com.atlasiq.parser.terraform.TerraformParser;
 import com.atlasiq.parser.api.ApiDiscoveryParser;
 import com.atlasiq.parser.api.HttpClientDiscoveryParser;
+import com.atlasiq.parser.database.DatabaseIntelligenceParser;
+import com.atlasiq.parser.supplychain.SupplyChainParser;
 import com.atlasiq.qir.ApiConsumerCorrelator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -133,6 +135,8 @@ class DefaultRepositoryScannerTest {
                 new ApiDiscoveryParser(),
                 new HttpClientDiscoveryParser(),
                 new ApiConsumerCorrelator(),
+                new DatabaseIntelligenceParser(),
+                new SupplyChainParser(),
                 new GitHubRepositoryAcquirer(workspace.toString()),
                 workspace.toString());
     }
