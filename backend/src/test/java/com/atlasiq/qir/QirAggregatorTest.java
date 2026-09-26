@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QirAggregatorTest {
 
-    private final QirAggregator aggregator = new QirAggregator();
+    private final QirAggregator aggregator = new QirAggregator(new CrossRepositoryDependencyResolver());
 
     @Test
     void aggregatesRepositoriesUnderSystemAndNamespacesComponentIds() {
