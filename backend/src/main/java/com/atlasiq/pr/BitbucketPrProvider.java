@@ -1,0 +1,3 @@
+package com.atlasiq.pr;
+import jakarta.enterprise.context.ApplicationScoped;
+@ApplicationScoped public class BitbucketPrProvider implements PrProvider {public String id(){return "bitbucket";}public PullRequestRef resolve(PrTarget t){throw new UnsupportedOperationException("Bitbucket adapter requires configured workspace/repository API identity");}public void publishCheck(PrTarget t,PrIntelligenceReport r){throw new UnsupportedOperationException("Bitbucket build status publishing requires configured API");}public void publishComment(PrTarget t,String m){throw new UnsupportedOperationException("Bitbucket PR comment publishing requires configured API");}}
