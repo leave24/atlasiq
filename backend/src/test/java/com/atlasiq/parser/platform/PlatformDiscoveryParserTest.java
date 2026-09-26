@@ -1,0 +1,6 @@
+package com.atlasiq.parser.platform;
+import org.junit.jupiter.api.*;import org.junit.jupiter.api.io.TempDir;import java.nio.file.*;import static org.junit.jupiter.api.Assertions.*;
+class PlatformDiscoveryParserTest{@TempDir Path root;
+ @Test void discoversThreeCloudsAndContracts()throws Exception{Files.writeString(root.resolve("main.tf"),"resource \"aws_s3_bucket\" \"a\" {}\nresource \"azurerm_resource_group\" \"b\" {}\nresource \"google_storage_bucket\" \"c\" {}");Files.writeString(root.resolve("openapi.yaml"),"openapi: 3.0.3\ninfo:\n  title: Orders\npaths:\n  /orders:\n    get: {}");Files.writeString(root.resolve("asyncapi.yaml"),"asyncapi: 3.0.0\ninfo:\n  title: Events\nchannels:\n  orders: {}\nservers:\n  prod:\n    protocol: kafka");var n=new PlatformDiscoveryParser().parse(root);assertEquals(3,n.stream().filter(x->"cloud-resource".equals(x.type())).count());assertTrue(n.stream().anyMatch(x->"api-contract".equals(x.type())));assertTrue(n.stream().anyMatch(x->"event-channel".equals(x.type())&&"kafka".equals(x.technology())));}
+ @Test void discoversCodeowners()throws Exception{Files.writeString(root.resolve("CODEOWNERS"),"* @platform-team");var n=new PlatformDiscoveryParser().parse(root);assertTrue(n.stream().anyMatch(x->"team".equals(x.type())&&"@platform-team".equals(x.name())));}
+}
