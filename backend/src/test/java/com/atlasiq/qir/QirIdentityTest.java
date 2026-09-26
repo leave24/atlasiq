@@ -1,0 +1,2 @@
+package com.atlasiq.qir;import org.junit.jupiter.api.Test;import static org.junit.jupiter.api.Assertions.*;
+class QirIdentityTest{@Test void idsAreStable(){assertEquals(QirIdentity.node("sys","service","orders"),QirIdentity.node("sys","service","orders"));assertNotEquals(QirIdentity.node("a","service","orders"),QirIdentity.node("b","service","orders"));}@Test void metadataIsCanonical(){var a=CanonicalMetadata.of(java.util.Map.of("b",2,"a",1,"timestamp","volatile"));assertEquals(java.util.List.of("a","b"),a.keySet().stream().toList());}}

@@ -1,7 +1,6 @@
 package com.atlasiq.persistence;
 import com.atlasiq.qir.QirModel;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import javax.sql.DataSource;
@@ -14,12 +13,6 @@ public class JdbcAnalysisStore implements AnalysisStore {
  @Inject DataSource dataSource;
  @Inject ObjectMapper mapper;
 
- @PostConstruct void migrate(){
-  try(Connection c=dataSource.getConnection(); Statement s=c.createStatement()){
-   s.executeUpdate("CREATE TABLE IF NOT EXISTS atlasiq_analysis (id VARCHAR(36) PRIMARY KEY, created_at TIMESTAMP NOT NULL, repository VARCHAR(1024) NOT NULL, ref_name VARCHAR(512), system_name VARCHAR(512), qir_json TEXT NOT NULL)");
-   try{s.executeUpdate("CREATE INDEX idx_atlasiq_analysis_created ON atlasiq_analysis(created_at)");}catch(SQLException ignored){}
-  }catch(SQLException e){throw new IllegalStateException("unable to initialize AtlasIQ persistence",e);}
- }
  @Override public StoredAnalysis save(QirModel model){
   String id=UUID.randomUUID().toString(); Instant now=Instant.now();
   try(Connection c=dataSource.getConnection(); PreparedStatement p=c.prepareStatement("INSERT INTO atlasiq_analysis(id,created_at,repository,ref_name,system_name,qir_json) VALUES(?,?,?,?,?,?)")){
