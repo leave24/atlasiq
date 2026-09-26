@@ -96,6 +96,7 @@ function Metric({label,value}:{label:string,value:number}){return <article style
 function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
   const [selected,setSelected]=useState<Node|null>(null);
   const [domain,setDomain]=useState("all");
+  const [detail,setDetail]=useState<"overview"|"components">("overview");
   const [edgeFilters,setEdgeFilters]=useState<Record<string,boolean>>({routing:true,selectors:true,secrets:true,uses:true,dependencies:false,containment:false,other:true});
   const edgeCategory=(relationship:string)=>{
     if(relationship==="routes_to")return "routing";
@@ -124,7 +125,8 @@ function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
     return 1;
   };
   const all=nodes.filter(n=>n.type!=="repository");
-  const filtered=all.filter(n=>domain==="all"||domainOf(n)===domain).slice(0,48);
+  const domainNodes=all.filter(n=>domain==="all"||domainOf(n)===domain);
+  const filtered=domainNodes.slice(0,detail==="overview"?24:96);
   const domainKeys=[...new Set(filtered.map(domainOf))];
   const sectionGap=28, nodeW=210, nodeH=58, rowGap=112, nodeGap=24, sectionPadding=28;
   const sections=domainKeys.map(key=>{
@@ -156,12 +158,12 @@ function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
   const relatedIds=new Set(selected?[selected.id,...selectedEdges.flatMap(edge=>[edge.from,edge.to])]:[]);
   const incoming=selectedEdges.filter(edge=>edge.to===selected?.id);
   const outgoing=selectedEdges.filter(edge=>edge.from===selected?.id);
-  const resetView=()=>{setSelected(null);setDomain("all");setEdgeFilters({routing:true,selectors:true,secrets:true,uses:true,dependencies:false,containment:false,other:true});};
+  const resetView=()=>{setSelected(null);setDomain("all");setDetail("overview");setEdgeFilters({routing:true,selectors:true,secrets:true,uses:true,dependencies:false,containment:false,other:true});};
 
   return <section>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",margin:"0 0 14px"}}>
       {["all",...domains].map(key=><button key={key} onClick={()=>{setDomain(key);setSelected(null)}} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:domain===key?700:400}}>{labels[key]}</button>)}
-      <button onClick={resetView} style={{marginLeft:"auto",padding:"8px 12px",borderRadius:18,border:"1px solid"}}>Reset view</button>
+      <div style={{display:"flex",gap:6,marginLeft:"auto"}}><button onClick={()=>{setDetail("overview");setSelected(null)}} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:detail==="overview"?700:400}}>Overview</button><button onClick={()=>setDetail("components")} style={{padding:"8px 12px",borderRadius:18,border:"1px solid",fontWeight:detail==="components"?700:400}}>Components</button><button onClick={resetView} style={{padding:"8px 12px",borderRadius:18,border:"1px solid"}}>Reset view</button></div>
     </div>
     <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",margin:"0 0 14px",padding:"10px 12px",border:"1px solid",borderRadius:8}}>
       <strong style={{fontSize:13}}>Relationships</strong>
@@ -181,7 +183,7 @@ function ArchitectureGraph({nodes,edges}:{nodes:Node[];edges:Edge[]}){
     <div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:10,fontSize:12,opacity:.72}}>
       <span>━━ structural / runtime</span><span>┄┄ job dependency</span><span>···· containment</span>
     </div>
-    <p><small>Semantic layout: infrastructure entry points and workflows appear above their dependants. Showing {filtered.length} of {all.length} components and {visibleEdges.length} filtered relationships.</small></p>
+    <p><small>Semantic zoom: {detail==="overview"?"overview":"component"} level. Showing {filtered.length} of {domainNodes.length} components in the current scope and {visibleEdges.length} filtered relationships.</small></p>
     {selected&&<aside style={{border:"1px solid",borderRadius:8,padding:16,marginTop:12}}>
       <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center"}}><strong>{displayName(selected)}</strong><button onClick={()=>setSelected(null)} style={{padding:"6px 10px"}}>Clear focus</button></div>
       <p><small>{selected.type} · {selected.source}</small></p><code style={{wordBreak:"break-all"}}>{selected.id}</code>
