@@ -1,0 +1,2 @@
+package com.atlasiq.pr;
+public interface PrProvider {String id();PullRequestRef resolve(PrTarget target);void publishCheck(PrTarget target,PrIntelligenceReport report);void publishComment(PrTarget target,String markdown);record PrTarget(String provider,String repository,String pullRequestId,String token){} record PullRequestRef(String repository,String number,String baseSha,String headSha,String url){}}

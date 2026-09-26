@@ -1,0 +1,3 @@
+package com.atlasiq.pr;
+import com.atlasiq.intelligence.*;import org.junit.jupiter.api.Test;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+class PrReportRendererTest{@Test void rendersArchitectureCheck(){var diff=new ArchitectureDiff("a","b",List.of(),List.of(),List.of(),List.of(),List.of(),List.of(),List.of());var impact=new PrChangeImpact("a","b","low",42,List.of("no structural breaking signals detected"),diff);var r=new PrIntelligenceReport("github","repo","1","base","head","a","b",diff,impact,List.of(),List.of(),List.of(),List.of(),List.of());String md=PrReportRenderer.markdown(r);assertTrue(md.contains("AtlasIQ Architecture Check"));assertTrue(md.contains("(42/100)"));assertTrue(md.contains("Evidence"));}}
