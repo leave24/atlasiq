@@ -2,12 +2,13 @@ package com.atlasiq.qir;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 @ApplicationScoped
 public class CrossRepositoryDependencyResolver {
@@ -17,8 +18,11 @@ public class CrossRepositoryDependencyResolver {
         for (QirNode node : nodes) {
             if (isRepositoryOrSystem(node)) continue;
             index(targets, node.name(), node);
-            Object serviceName = node.metadata() == null ? null : node.metadata().get("serviceName");
-            if (serviceName != null) index(targets, serviceName.toString(), node);
+            if (node.metadata() != null) {
+                indexMetadataAlias(targets, node, "serviceName");
+                indexMetadataAlias(targets, node, "hostname");
+                indexMetadataAlias(targets, node, "host");
+            }
         }
 
         List<QirEdge> resolved = new ArrayList<>();
@@ -27,13 +31,21 @@ public class CrossRepositoryDependencyResolver {
             resolveValue(source, source.metadata().get("dependsOn"), "depends-on", "dependsOn", targets, resolved);
             resolveValue(source, source.metadata().get("targetService"), "calls", "targetService", targets, resolved);
 
-            Object targetUrl = source.metadata().get("targetUrl");
-            if (targetUrl != null) {
-                String host = host(targetUrl.toString());
-                if (host != null) resolveOne(source, host, "calls", "targetUrl", targets, resolved);
+            Object targetHost = source.metadata().get("targetHost");
+            if (targetHost != null) {
+                resolveOne(source, targetHost.toString(), "calls", "targetHost", targets, resolved);
+            } else {
+                Object targetUrl = source.metadata().get("targetUrl");
+                if (targetUrl != null) {
+                    String host = host(targetUrl.toString());
+                    if (host != null) resolveOne(source, host, "calls", "targetUrl", targets, resolved);
+                }
             }
         }
-        return List.copyOf(resolved);
+        Set<String> seen = new HashSet<>();
+        return resolved.stream()
+                .filter(edge -> seen.add(edge.from() + "\u0000" + edge.to() + "\u0000" + edge.relationship()))
+                .toList();
     }
 
     private void resolveValue(QirNode source, Object value, String relationship, String evidence,
@@ -53,11 +65,24 @@ public class CrossRepositoryDependencyResolver {
         if (matches.size() != 1) return;
 
         QirNode target = matches.getFirst();
-        resolved.add(new QirEdge(source.id(), target.id(), relationship, Map.of(
-                "scope", "cross-repository",
-                "evidence", evidence,
-                "target", targetName,
-                "confidence", "explicit")));
+        var metadata = new HashMap<String, Object>();
+        metadata.put("scope", "cross-repository");
+        metadata.put("evidence", evidence);
+        metadata.put("target", targetName);
+        metadata.put("confidence", "explicit");
+        copyEvidence(source, metadata, "evidenceFile");
+        copyEvidence(source, metadata, "evidenceKind");
+        resolved.add(new QirEdge(source.id(), target.id(), relationship, Map.copyOf(metadata)));
+    }
+
+    private void indexMetadataAlias(Map<String, List<QirNode>> targets, QirNode node, String key) {
+        Object value = node.metadata().get(key);
+        if (value != null) index(targets, value.toString(), node);
+    }
+
+    private void copyEvidence(QirNode source, Map<String, Object> target, String key) {
+        Object value = source.metadata().get(key);
+        if (value != null) target.put(key, value);
     }
 
     private void index(Map<String, List<QirNode>> targets, String key, QirNode node) {
@@ -82,11 +107,28 @@ public class CrossRepositoryDependencyResolver {
     }
 
     private String host(String value) {
-        try {
-            URI uri = URI.create(value);
-            return uri.getHost();
-        } catch (IllegalArgumentException ignored) {
-            return null;
+        int schemeEnd = value.indexOf("://");
+        if (schemeEnd <= 0) return null;
+        int start = schemeEnd + 3;
+        int end = value.length();
+        for (int i = start; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch == '/' || ch == '?' || ch == '#') {
+                end = i;
+                break;
+            }
         }
+        String authority = value.substring(start, end);
+        int at = authority.lastIndexOf('@');
+        if (at >= 0) authority = authority.substring(at + 1);
+        if (authority.startsWith("[")) {
+            int closing = authority.indexOf(']');
+            return closing >= 0 ? authority.substring(0, closing + 1) : null;
+        }
+        int colon = authority.lastIndexOf(':');
+        if (colon > 0 && authority.substring(colon + 1).chars().allMatch(Character::isDigit)) {
+            authority = authority.substring(0, colon);
+        }
+        return authority.isBlank() ? null : authority;
     }
 }
