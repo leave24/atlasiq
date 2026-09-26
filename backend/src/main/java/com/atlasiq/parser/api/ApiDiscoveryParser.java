@@ -32,19 +32,37 @@ public class ApiDiscoveryParser {
             List<String> lines=Files.readAllLines(file);
             String relative=root.relativize(file).toString().replace('\\','/');
             String base="";
+            String pendingMethod=null;
+            int pendingLine=-1;
+            String pendingPath="";
             for(int i=0;i<lines.size();i++){
                 String line=lines.get(i);
                 Matcher cp=JAVA_CLASS_PATH.matcher(line);
-                if(cp.find()) base=cp.group(1);
+                if(cp.find() && pendingMethod == null) base=cp.group(1);
+
                 Matcher jm=JAVA_METHOD.matcher(line);
                 if(jm.find()){
                     String method=jm.group(1)!=null?jm.group(1):mappingMethod(jm.group(2));
                     String sub=jm.group(3)==null?"":jm.group(3);
-                    add(out,relative,i+1,method,join(base,sub),name.endsWith(".java")?"java":"javascript");
+                    if(method!=null){
+                        if(pendingMethod!=null) add(out,relative,pendingLine,pendingMethod,join(base,pendingPath),"java");
+                        pendingMethod=method;
+                        pendingLine=i+1;
+                        pendingPath=sub;
+                    }
+                } else if(pendingMethod!=null) {
+                    Matcher methodPath=JAVA_CLASS_PATH.matcher(line);
+                    if(methodPath.find()) pendingPath=methodPath.group(1);
+                    if(!line.trim().startsWith("@") && !line.isBlank()){
+                        add(out,relative,pendingLine,pendingMethod,join(base,pendingPath),"java");
+                        pendingMethod=null; pendingLine=-1; pendingPath="";
+                    }
                 }
+
                 Matcher ex=EXPRESS.matcher(line);
                 while(ex.find()) add(out,relative,i+1,ex.group(1).toUpperCase(Locale.ROOT),ex.group(2),"express");
             }
+            if(pendingMethod!=null) add(out,relative,pendingLine,pendingMethod,join(base,pendingPath),"java");
         } catch(IOException ignored){}
     }
 
