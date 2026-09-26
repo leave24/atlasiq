@@ -8,6 +8,7 @@ import com.atlasiq.qir.Finding;
 import com.atlasiq.qir.QirEdge;
 import com.atlasiq.qir.QirModel;
 import com.atlasiq.qir.QirNode;
+import com.atlasiq.qir.QirScope;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -50,7 +51,7 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         if (request.repository().trim().startsWith("https://")) {
             var acquired = repositoryAcquirer.acquire(request.repository(), request.ref());
             try {
-                return scanPath(request.repository(), acquired.ref(), acquired.path(), "public-github");
+                return scanPath(request.repository(), acquired.ref(), acquired.path(), "public-github", request.system());
             } finally {
                 repositoryAcquirer.cleanup(acquired.path());
             }
@@ -58,10 +59,10 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
 
         Path repositoryPath = resolveLocalRepository(request.repository());
         String ref = request.ref() == null || request.ref().isBlank() ? "local" : request.ref();
-        return scanPath(request.repository(), ref, repositoryPath, "local-workspace");
+        return scanPath(request.repository(), ref, repositoryPath, "local-workspace", request.system());
     }
 
-    private QirModel scanPath(String repository, String ref, Path repositoryPath, String source) {
+    private QirModel scanPath(String repository, String ref, Path repositoryPath, String source, String requestedSystem) {
         var kubernetes = kubernetesParser.parse(repositoryPath);
         var docker = dockerfileParser.parse(repositoryPath);
         var githubActions = githubActionsParser.parse(repositoryPath);
@@ -71,12 +72,15 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         var edges = new ArrayList<QirEdge>();
         var findings = new ArrayList<Finding>();
 
+        String repositoryId = repositoryId(repository);
+        String system = requestedSystem == null || requestedSystem.isBlank() ? "default" : requestedSystem.trim();
+
         nodes.add(new QirNode(
-                "repository",
+                repositoryId,
                 "repository",
                 repository,
                 source,
-                Map.of("ref", ref, "workspace", repositoryPath.toString())));
+                Map.of("ref", ref, "workspace", repositoryPath.toString(), "system", system)));
         nodes.addAll(kubernetes.nodes());
         nodes.addAll(docker.nodes());
         nodes.addAll(githubActions.nodes());
@@ -93,12 +97,18 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         nodes.stream()
                 .filter(node -> !"repository".equals(node.type()))
                 .forEach(node -> edges.add(new QirEdge(
-                        "repository",
+                        repositoryId,
                         node.id(),
                         "contains",
                         Map.of("source", source))));
 
-        return new QirModel(repository, ref, nodes, edges, findings);
+        return new QirModel(repository, ref, nodes, edges, findings, new QirScope(system, repositoryId));
+    }
+
+    private String repositoryId(String repository) {
+        String normalized = repository.trim().replaceFirst("(?i)^https://github\\.com/", "").replaceFirst("\\.git$", "");
+        normalized = normalized.replaceAll("[^A-Za-z0-9._/-]+", "-").replaceAll("^/+|/+$", "");
+        return "repo:" + normalized.toLowerCase();
     }
 
     private Path resolveLocalRepository(String repository) {
