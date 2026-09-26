@@ -59,7 +59,7 @@ public class DependencyHintParser {
                         "dependency-reference",
                         relative,
                         "configuration",
-                        Map.of("targetUrl", sanitized, "evidenceFile", relative, "evidenceKind", "declared-url")));
+                        Map.of("targetUrl", sanitized, "targetHost", authorityHost(sanitized), "evidenceFile", relative, "evidenceKind", "declared-url")));
             }
         } catch (IOException | IllegalArgumentException ignored) {
             // A single unsafe or unreadable config file must not abort repository analysis.
@@ -113,6 +113,20 @@ public class DependencyHintParser {
         if (!HOST.matcher(host).matches()) return null;
 
         return scheme + "://" + host + port;
+    }
+
+    private String authorityHost(String sanitizedUrl) {
+        int authorityStart = sanitizedUrl.indexOf("://") + 3;
+        String authority = sanitizedUrl.substring(authorityStart);
+        if (authority.startsWith("[")) {
+            int closing = authority.indexOf(']');
+            return closing >= 0 ? authority.substring(0, closing + 1).toLowerCase() : authority.toLowerCase();
+        }
+        int colon = authority.lastIndexOf(':');
+        if (colon > 0 && authority.substring(colon + 1).chars().allMatch(Character::isDigit)) {
+            authority = authority.substring(0, colon);
+        }
+        return authority.toLowerCase();
     }
 
     private boolean excluded(Path root, Path path) {

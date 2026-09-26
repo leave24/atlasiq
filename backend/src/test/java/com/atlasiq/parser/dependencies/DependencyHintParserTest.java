@@ -27,6 +27,7 @@ class DependencyHintParserTest {
         assertEquals("dependency-reference", nodes.getFirst().type());
         assertEquals("https://payments.internal", nodes.getFirst().metadata().get("targetUrl"));
         assertEquals("application.properties", nodes.getFirst().metadata().get("evidenceFile"));
+        assertEquals("payments.internal", nodes.getFirst().metadata().get("targetHost"));
     }
 
     @Test
@@ -38,6 +39,7 @@ class DependencyHintParserTest {
 
         assertEquals(1, nodes.size());
         assertEquals("https://api.example:8443", nodes.getFirst().metadata().get("targetUrl"));
+        assertEquals("api.example", nodes.getFirst().metadata().get("targetHost"));
     }
 
     @Test
@@ -57,6 +59,7 @@ class DependencyHintParserTest {
 
         assertEquals(1, nodes.size());
         assertEquals("http://my_service:8080", nodes.getFirst().metadata().get("targetUrl"));
+        assertEquals("my_service", nodes.getFirst().metadata().get("targetHost"));
     }
 
     @Test
