@@ -1,6 +1,7 @@
 package com.atlasiq.scanner;
 
 import com.atlasiq.parser.docker.DockerfileParser;
+import com.atlasiq.parser.dependencies.DependencyHintParser;
 import com.atlasiq.parser.githubactions.GitHubActionsParser;
 import com.atlasiq.parser.kubernetes.KubernetesParser;
 import com.atlasiq.parser.terraform.TerraformParser;
@@ -125,6 +126,7 @@ class DefaultRepositoryScannerTest {
                 new DockerfileParser(),
                 new GitHubActionsParser(),
                 new TerraformParser(),
+                new DependencyHintParser(),
                 new GitHubRepositoryAcquirer(workspace.toString()),
                 workspace.toString());
     }
