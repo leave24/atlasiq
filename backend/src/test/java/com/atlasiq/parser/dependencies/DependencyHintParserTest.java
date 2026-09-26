@@ -41,6 +41,33 @@ class DependencyHintParserTest {
     }
 
     @Test
+    void preservesInternalHostsWithUnderscores() throws Exception {
+        Files.writeString(repository.resolve("application.properties"),
+                "service.url=http://my_service:8080/api");
+
+        var nodes = new DependencyHintParser().parse(repository);
+
+        assertEquals(1, nodes.size());
+        assertEquals("http://my_service:8080", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
+    void ignoresDirectorySymlinkCycles() throws Exception {
+        Path nested = Files.createDirectories(repository.resolve("nested"));
+        try {
+            Files.createSymbolicLink(nested.resolve("loop"), repository);
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException e) {
+            return;
+        }
+        Files.writeString(repository.resolve("application.properties"), "api=https://safe.internal/api");
+
+        var nodes = new DependencyHintParser().parse(repository);
+
+        assertEquals(1, nodes.size());
+        assertEquals("https://safe.internal", nodes.getFirst().metadata().get("targetUrl"));
+    }
+
+    @Test
     void ignoresGeneratedDirectories() throws Exception {
         Path generated = Files.createDirectories(repository.resolve("target/classes"));
         Files.writeString(generated.resolve("application.properties"), "api=https://generated.internal/api");
