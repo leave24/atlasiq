@@ -13,6 +13,6 @@ class RbacServiceTest {
         var r = new RbacService();
         assertTrue(r.allowed(Set.of("viewer"), "architecture:read"));
         assertFalse(r.allowed(Set.of("viewer"), "workspace:manage"));
-        assertTrue(r.allowed(Set.of("owner"), "billing:update"));
+        assertTrue(r.allowed(Set.of("owner"), "security:manage"));
     }
 }
