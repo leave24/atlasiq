@@ -5,6 +5,9 @@ import com.atlasiq.parser.dependencies.DependencyHintParser;
 import com.atlasiq.parser.githubactions.GitHubActionsParser;
 import com.atlasiq.parser.kubernetes.KubernetesParser;
 import com.atlasiq.parser.terraform.TerraformParser;
+import com.atlasiq.parser.api.ApiDiscoveryParser;
+import com.atlasiq.parser.api.HttpClientDiscoveryParser;
+import com.atlasiq.qir.ApiConsumerCorrelator;
 import com.atlasiq.qir.Finding;
 import com.atlasiq.qir.QirEdge;
 import com.atlasiq.qir.QirModel;
@@ -28,6 +31,9 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
     private final GitHubActionsParser githubActionsParser;
     private final TerraformParser terraformParser;
     private final DependencyHintParser dependencyHintParser;
+    private final ApiDiscoveryParser apiDiscoveryParser;
+    private final HttpClientDiscoveryParser httpClientDiscoveryParser;
+    private final ApiConsumerCorrelator apiConsumerCorrelator;
     private final GitHubRepositoryAcquirer repositoryAcquirer;
     private final Path workspaceRoot;
 
@@ -37,6 +43,9 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
             GitHubActionsParser githubActionsParser,
             TerraformParser terraformParser,
             DependencyHintParser dependencyHintParser,
+            ApiDiscoveryParser apiDiscoveryParser,
+            HttpClientDiscoveryParser httpClientDiscoveryParser,
+            ApiConsumerCorrelator apiConsumerCorrelator,
             GitHubRepositoryAcquirer repositoryAcquirer,
             @ConfigProperty(name = "atlasiq.workspace.root", defaultValue = "/workspace") String workspaceRoot) {
         this.kubernetesParser = kubernetesParser;
@@ -44,6 +53,9 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         this.githubActionsParser = githubActionsParser;
         this.terraformParser = terraformParser;
         this.dependencyHintParser = dependencyHintParser;
+        this.apiDiscoveryParser = apiDiscoveryParser;
+        this.httpClientDiscoveryParser = httpClientDiscoveryParser;
+        this.apiConsumerCorrelator = apiConsumerCorrelator;
         this.repositoryAcquirer = repositoryAcquirer;
         this.workspaceRoot = Path.of(workspaceRoot).toAbsolutePath().normalize();
     }
@@ -55,9 +67,9 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         }
 
         if (request.repository().trim().startsWith("https://")) {
-            var acquired = repositoryAcquirer.acquire(request.repository(), request.ref());
+            var acquired = repositoryAcquirer.acquire(request.repository(), request.ref(), request.githubToken());
             try {
-                return scanPath(request.repository(), acquired.ref(), acquired.path(), "public-github", request.system());
+                return scanPath(request.repository(), acquired.ref(), acquired.path(), request.githubToken() == null || request.githubToken().isBlank() ? "public-github" : "github-app", request.system());
             } finally {
                 repositoryAcquirer.cleanup(acquired.path());
             }
@@ -74,6 +86,8 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         var githubActions = githubActionsParser.parse(repositoryPath);
         var terraform = terraformParser.parse(repositoryPath);
         var dependencyHints = dependencyHintParser.parse(repositoryPath);
+        var apiEndpoints = apiDiscoveryParser.parse(repositoryPath);
+        var httpClients = httpClientDiscoveryParser.parse(repositoryPath);
 
         var nodes = new ArrayList<QirNode>();
         var edges = new ArrayList<QirEdge>();
@@ -93,6 +107,8 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         nodes.addAll(githubActions.nodes());
         nodes.addAll(terraform.nodes());
         nodes.addAll(dependencyHints);
+        nodes.addAll(apiEndpoints);
+        nodes.addAll(httpClients);
         edges.addAll(kubernetes.edges());
         edges.addAll(docker.edges());
         edges.addAll(githubActions.edges());
@@ -101,6 +117,8 @@ public class DefaultRepositoryScanner implements RepositoryScanner {
         findings.addAll(docker.findings());
         findings.addAll(githubActions.findings());
         findings.addAll(terraform.findings());
+
+        edges.addAll(apiConsumerCorrelator.correlate(nodes));
 
         nodes.stream()
                 .filter(node -> !"repository".equals(node.type()))

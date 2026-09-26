@@ -21,6 +21,10 @@ public class GitHubRepositoryAcquirer {
     }
 
     public AcquiredRepository acquire(String repository, String ref) {
+        return acquire(repository, ref, null);
+    }
+
+    public AcquiredRepository acquire(String repository, String ref, String installationToken) {
         URI uri = validatePublicGitHubUrl(repository);
         String normalizedRef = normalizeRef(ref);
         String repoName = repositoryName(uri);
@@ -45,6 +49,12 @@ public class GitHubRepositoryAcquirer {
 
             ProcessBuilder processBuilder = new ProcessBuilder(command)
                     .redirectErrorStream(true);
+            if (installationToken != null && !installationToken.isBlank()) {
+                processBuilder.environment().put("GIT_CONFIG_COUNT", "1");
+                processBuilder.environment().put("GIT_CONFIG_KEY_0", "http.https://github.com/.extraheader");
+                String basic = java.util.Base64.getEncoder().encodeToString(("x-access-token:" + installationToken).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                processBuilder.environment().put("GIT_CONFIG_VALUE_0", "AUTHORIZATION: basic " + basic);
+            }
             processBuilder.environment().put("GIT_TERMINAL_PROMPT", "0");
             processBuilder.environment().put("GCM_INTERACTIVE", "Never");
             processBuilder.environment().put("GIT_ASKPASS", "echo");
@@ -53,7 +63,7 @@ public class GitHubRepositoryAcquirer {
             int exitCode = process.waitFor();
             if (exitCode != 0) {
                 deleteRecursively(target);
-                throw new IllegalArgumentException("unable to clone public GitHub repository: " + sanitize(output));
+                throw new IllegalArgumentException("unable to clone GitHub repository: " + sanitize(output, installationToken));
             }
             return new AcquiredRepository(target, normalizedRef == null ? "default" : normalizedRef);
         } catch (IOException e) {
@@ -113,9 +123,10 @@ public class GitHubRepositoryAcquirer {
         return name.endsWith(".git") ? name.substring(0, name.length() - 4) : name;
     }
 
-    private static String sanitize(String output) {
+    private static String sanitize(String output, String secret) {
         if (output == null || output.isBlank()) return "git clone failed";
         String oneLine = output.replaceAll("[\\r\\n]+", " ").trim();
+        if (secret != null && !secret.isBlank()) oneLine = oneLine.replace(secret, "[REDACTED]");
         return oneLine.length() > 300 ? oneLine.substring(0, 300) : oneLine;
     }
 
