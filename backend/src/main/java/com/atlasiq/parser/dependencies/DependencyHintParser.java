@@ -29,7 +29,7 @@ public class DependencyHintParser {
     public List<QirNode> parse(Path repository) {
         var nodes = new ArrayList<QirNode>();
         Path root = repository.toAbsolutePath().normalize();
-        try (Stream<Path> files = Files.walk(root, 8, FileVisitOption.FOLLOW_LINKS)) {
+        try (Stream<Path> files = Files.walk(root, 8)) {
             files.filter(path -> !excluded(root, path))
                     .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .filter(path -> !Files.isSymbolicLink(path))
@@ -67,10 +67,28 @@ public class DependencyHintParser {
     }
 
     private String sanitize(String value) {
-        URI uri = URI.create(value);
-        if (uri.getHost() == null) return null;
-        int port = uri.getPort();
-        return uri.getScheme() + "://" + uri.getHost() + (port >= 0 ? ":" + port : "");
+        int schemeEnd = value.indexOf("://");
+        if (schemeEnd <= 0) return null;
+
+        String scheme = value.substring(0, schemeEnd).toLowerCase();
+        if (!scheme.equals("http") && !scheme.equals("https")) return null;
+
+        int authorityStart = schemeEnd + 3;
+        int authorityEnd = value.length();
+        for (int i = authorityStart; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch == '/' || ch == '?' || ch == '#') {
+                authorityEnd = i;
+                break;
+            }
+        }
+
+        String authority = value.substring(authorityStart, authorityEnd);
+        int at = authority.lastIndexOf('@');
+        if (at >= 0) authority = authority.substring(at + 1);
+        if (authority.isBlank() || authority.contains("@")) return null;
+
+        return scheme + "://" + authority;
     }
 
     private boolean excluded(Path root, Path path) {
